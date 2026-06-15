@@ -1,0 +1,16 @@
+[phases.setup]
+nixPkgs = [
+    "php",
+    "phpExtensions.fpm",
+    "phpExtensions.pgsql",
+    "phpExtensions.pdo",
+    "nginx"
+]
+
+[phases.build]
+cmds = [
+    "echo 'Build complete'"
+]
+
+[start]
+cmd = "bash start.sh"
