@@ -286,13 +286,11 @@
 
     async function autoSaveDeck() {
         const cards = state.deckCards.map(c => c.Nombre);
-        // Guardar en PHP si está disponible
         if (state.currentUser) {
             try {
                 await fetch('api/save_deck.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ maleta: state.activeMaleta, cards }) });
             } catch(e) {}
         }
-        // Respaldo en localStorage
         const decks = JSON.parse(localStorage.getItem('ygo_decks') || '{}');
         if (!decks[state.currentUser?.id]) decks[state.currentUser.id] = {};
         decks[state.currentUser.id][state.activeMaleta] = cards;
@@ -301,7 +299,6 @@
 
     async function loadDeckForMaleta(maleta) {
         let names = [];
-        // Intentar cargar desde PHP
         if (state.currentUser) {
             try {
                 const r = await fetch(`api/load_deck.php?maleta=${encodeURIComponent(maleta)}`);
@@ -309,7 +306,6 @@
                 if (d.cards) names = d.cards;
             } catch(e) {}
         }
-        // Fallback a localStorage
         if (names.length === 0) {
             const decks = JSON.parse(localStorage.getItem('ygo_decks') || '{}');
             names = decks[state.currentUser?.id]?.[maleta] || [];
@@ -362,7 +358,6 @@
             fetchCardAPI(card.Nombre).then(d => { if (d?.card_images?.[0]) img.src = d.card_images[0].image_url_small; if (d?.name) nameSpan.textContent = d.name; });
             dom.grid.appendChild(cell);
         });
-        // Paginación simplificada
         const totalPages = Math.ceil(filtered.length/CARDS_PER_PAGE);
         let pager = document.getElementById('pagerContainer');
         if (!pager) { pager = document.createElement('div'); pager.id = 'pagerContainer'; pager.style.cssText = 'display:flex;justify-content:center;gap:10px;padding:12px;'; document.querySelector('.center-panel').appendChild(pager); }
@@ -436,7 +431,6 @@
         dom.seasonTitle.textContent = `Temporada ${seasonData.numero}`;
         dom.seasonInfo.textContent = `📅 Temporada ${seasonData.numero}`;
 
-        // Si el usuario ya eligió en esta temporada (según backend o su maleta actual)
         let chosen = null;
         if (state.currentUser?.maleta && seasonData.maletas.includes(state.currentUser.maleta)) chosen = state.currentUser.maleta;
         if (!chosen && seasonData.user_choice) chosen = seasonData.user_choice;
@@ -454,7 +448,6 @@
         }
     }
     async function elegirMaleta(maleta) {
-        // Intentar guardar en backend
         try {
             const r = await fetch('api/elegir_maleta.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({maleta}) });
             const d = await r.json();
@@ -462,7 +455,7 @@
                 state.currentUser.maleta = maleta;
                 localStorage.setItem('currentUser', JSON.stringify(state.currentUser));
             } else { toast(d.error,'error'); return; }
-        } catch(e) { /* fallback local */ }
+        } catch(e) {}
         state.activeMaleta = maleta;
         setMaletaGlow(maleta);
         dom.maletaTitle.textContent = maleta;
