@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maletas - Yu‑Gi‑Oh! Temporada</title>
+
+    <!-- Fuentes -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Librerías externas -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanilla-tilt@1/dist/vanilla-tilt.min.js"></script>
+
+    <!-- Estilos propios -->
+    <link rel="stylesheet" href="style/style_index.css">
+</head>
+<body>
+    <!-- Overlay de autenticación -->
+    <div id="authOverlay" class="fullscreen-overlay">
+        <div class="auth-box">
+            <!-- Formulario de Login -->
+            <div id="loginForm">
+                <h2 class="auth-title">Iniciar Sesión</h2>
+                <input id="loginNombre" type="text" placeholder="Usuario" class="input-field" autocomplete="username">
+                <input id="loginPassword" type="password" placeholder="Contraseña" class="input-field" autocomplete="current-password">
+                <button class="btn generate btn-full" id="btnLogin">Entrar</button>
+                <button class="btn btn-link" id="showRegister">¿No tienes cuenta? Regístrate</button>
+            </div>
+
+            <!-- Formulario de Registro -->
+            <div id="registerForm" style="display:none;">
+                <h2 class="auth-title">Crear Cuenta</h2>
+                <input id="regNombre" type="text" placeholder="Usuario (mín. 3 caracteres)" class="input-field" autocomplete="username">
+                <input id="regPassword" type="password" placeholder="Contraseña (mín. 4 caracteres)" class="input-field" autocomplete="new-password">
+                <button class="btn generate btn-full" id="btnRegister">Registrarse</button>
+                <button class="btn btn-link" id="showLogin">Volver al inicio de sesión</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay de selección de maleta (primera vez en la temporada) -->
+    <div id="maletaSelectOverlay" class="fullscreen-overlay" style="display:none;">
+        <div class="maleta-select-box">
+            <h2 class="auth-title">Elige tu maleta</h2>
+            <p class="season-info">
+                <span id="seasonTitle">Temporada ?</span>
+            </p>
+            <p class="season-subtitle">Esta decisión es permanente para esta temporada</p>
+            <div id="maletaOptions" class="maleta-options-container"></div>
+        </div>
+    </div>
+
+    <!-- Contenido principal de la aplicación -->
+    <div id="mainContent" style="display:none;">
+        <header class="header">
+            <span class="logo">MALETAS</span>
+            <span id="userInfo" class="user-info"></span>
+            <span id="seasonInfo" class="season-badge"></span>
+            <button class="btn" id="btnToggleTheme" title="Modo oscuro / claro">🌓</button>
+            <button class="btn generate" id="btnGenerateYDK">📥 Generar .ydk</button>
+            <button class="btn danger" id="btnLogout">Cerrar sesión</button>
+        </header>
+
+        <div class="main">
+            <!-- Panel izquierdo: detalle de carta -->
+            <aside class="left-panel">
+                <div class="detail-section" id="detailSection">
+                    <div class="detail-placeholder">
+                        <span class="detail-icon">🃏</span>
+                        <p>Pasa el cursor sobre una carta<br>para ver sus detalles</p>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Centro: grid de cartas -->
+            <section class="center-panel">
+                <div class="search-bar">
+                    <input type="text" id="searchInput" placeholder="🔍 Buscar carta (inglés o español)...">
+                </div>
+                <div class="maleta-title" id="maletaTitle">Maleta</div>
+                <div class="grid-scroll" id="gridScroll">
+                    <div class="grid" id="cardGrid"></div>
+                </div>
+            </section>
+
+            <!-- Panel derecho: mazo -->
+            <aside class="right-panel">
+                <div class="deck-header">
+                    <h3>📋 Mi Deck</h3>
+                    <span class="deck-count" id="deckCount">0/40</span>
+                </div>
+                <div class="deck-progress">
+                    <div class="deck-progress-fill" id="deckProgressFill"></div>
+                </div>
+                <div class="deck-list" id="deckList"
+                     ondragover="window.deckHandlers.handleDragOver(event)"
+                     ondragleave="window.deckHandlers.handleDragLeave(event)"
+                     ondrop="window.deckHandlers.handleDrop(event)">
+                    <div class="deck-empty" id="deckEmpty">
+                        <span class="deck-empty-icon">🎴</span>
+                        <p>Arrastra cartas aquí<br>o haz clic en ellas</p>
+                    </div>
+                </div>
+                <div class="stats-panel" id="statsPanel"></div>
+                <div class="deck-actions">
+                    <button class="btn" id="btnPreview">🖼️ Vista previa</button>
+                    <button class="btn danger" id="btnClearDeck">🗑️ Vaciar mazo</button>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- Modal vista previa del mazo -->
+    <div class="modal-overlay" id="previewModal">
+        <div class="modal">
+            <h3 class="modal-title">Vista previa del mazo</h3>
+            <div class="modal-grid" id="previewGrid"></div>
+            <div class="modal-actions">
+                <button class="btn generate" id="btnClosePreview">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display:none;">
+        <div class="spinner"></div>
+        <div class="loading-text">Cargando...</div>
+    </div>
+
+    <!-- Script principal -->
+    <script src="js/index.js"></script>
+</body>
+</html>
