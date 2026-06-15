@@ -1,0 +1,16 @@
+{
+  "build": {
+    "builder": "NIXPACKS",
+    "nixpacksConfig": {
+      "phases": {
+        "setup": {
+          "nixPkgs": ["php", "php82Packages.fpm", "nginx"]
+        }
+      }
+    }
+  },
+  "deploy": {
+    "startCommand": "bash start.sh",
+    "restartPolicyType": "ON_FAILURE"
+  }
+}
