@@ -97,20 +97,33 @@
         document.documentElement.style.setProperty('--maleta-glow-rgb', g.rgb);
     }
 
-    // ============ TRADUCCIÓN ============
+    // ============ TRADUCCIÓN (Google Translate sin límite) ============
     async function translateText(text) {
         if (!text) return text;
-        const key = text.trim();
+        const key = text.trim().toLowerCase();
         if (state.translationCache[key]) return state.translationCache[key];
+
+        const lsKey = 'tr_' + key.replace(/\s+/g, '_').substring(0, 50);
         try {
-            const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(key)}&langpair=en|es`);
-            const d = await r.json();
-            if (d?.responseData?.translatedText) {
-                state.translationCache[key] = d.responseData.translatedText;
-                return d.responseData.translatedText;
+            const cached = localStorage.getItem(lsKey);
+            if (cached) {
+                state.translationCache[key] = cached;
+                return cached;
             }
         } catch(e) {}
-        return key;
+
+        try {
+            const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t&q=${encodeURIComponent(text)}`;
+            const resp = await fetch(url);
+            const data = await resp.json();
+            const translated = data?.[0]?.map(part => part[0]).join('') || text;
+            state.translationCache[key] = translated;
+            try { localStorage.setItem(lsKey, translated); } catch(e) {}
+            return translated;
+        } catch (e) {
+            console.warn('Falló la traducción, se usará el texto original');
+            return text;
+        }
     }
 
     async function translateCardData(data) {
