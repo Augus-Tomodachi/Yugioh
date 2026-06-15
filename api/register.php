@@ -39,15 +39,13 @@ if (strlen($password) < 6 || !preg_match('/[A-Z]/', $password) || !preg_match('/
 }
 
 $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
-$avatarSeed = substr(md5($email), 0, 10);
 
 try {
-    $stmt = $pdo->prepare("INSERT INTO usuarios (nombre, email, password_hash, avatar_seed) VALUES (:nombre, :email, :hash, :seed)");
+    $stmt = $pdo->prepare("INSERT INTO usuarios (nombre, email, password_hash) VALUES (:nombre, :email, :hash)");
     $stmt->execute([
         ':nombre' => $nombre,
         ':email' => $email,
         ':hash' => $hash,
-        ':seed' => $avatarSeed
     ]);
 
     echo json_encode([
