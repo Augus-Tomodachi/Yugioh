@@ -18,7 +18,7 @@ if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > 
 $_SESSION['last_activity'] = time();
 
 if (!$pdo) {
-    // Sin base de datos, devolvemos los datos básicos de sesión
+    // Sin base de datos, devolvemos datos básicos de sesión
     echo json_encode([
         'logged_in' => true,
         'user' => [
@@ -44,7 +44,7 @@ try {
                 'nombre' => $user['nombre'],
                 'email' => $user['email'] ?? '',
                 'vidas' => (int)$user['vidas'],
-                'maleta' => $user['maleta'],
+                'maleta' => $user['maleta']
             ]
         ]);
     } else {
