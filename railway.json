@@ -7,16 +7,14 @@
           "nixPkgs": [
             "php83",
             "php83Extensions.pdo",
-            "php83Extensions.pgsql",
-            "nginx"
+            "php83Extensions.pgsql"
           ]
-
         }
       }
     }
   },
   "deploy": {
-    "startCommand": "bash start.sh",
+    "startCommand": "php -S 0.0.0.0:${PORT:-80} -t /app /app/router.php",
     "restartPolicyType": "ON_FAILURE"
   }
 }
