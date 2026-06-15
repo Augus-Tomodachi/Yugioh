@@ -24,7 +24,7 @@ if (empty($email) || empty($password)) {
 }
 
 try {
-$stmt = $pdo->prepare("SELECT id, nombre, email, password_hash, vidas, maleta FROM usuarios WHERE email = :email");
+    $stmt = $pdo->prepare("SELECT id, nombre, email, password_hash, vidas, maleta FROM usuarios WHERE email = :email");
     $stmt->execute([':email' => $email]);
     $user = $stmt->fetch();
 
@@ -34,10 +34,6 @@ $stmt = $pdo->prepare("SELECT id, nombre, email, password_hash, vidas, maleta FR
         $_SESSION['nombre'] = $user['nombre'];
         $_SESSION['last_activity'] = time();
 
-        // Actualizar último login
-        $pdo->prepare("UPDATE usuarios SET ultimo_login = NOW() WHERE id = :id")
-            ->execute([':id' => $user['id']]);
-
         echo json_encode([
             'success' => true,
             'user' => [
@@ -45,7 +41,7 @@ $stmt = $pdo->prepare("SELECT id, nombre, email, password_hash, vidas, maleta FR
                 'nombre' => $user['nombre'],
                 'email' => $user['email'],
                 'vidas' => (int)$user['vidas'],
-                'maleta' => $user['maleta'],
+                'maleta' => $user['maleta']
             ]
         ]);
     } else {
