@@ -1,11 +1,11 @@
 [phases.setup]
 nixPkgs = [
-    "php",
-    "phpExtensions.fpm",
-    "phpExtensions.pgsql",
-    "phpExtensions.pdo",
+    "php83",
+    "php83Extensions.pdo",
+    "php83Extensions.pgsql",
     "nginx"
 ]
+
 
 [phases.build]
 cmds = [

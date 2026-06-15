@@ -6,11 +6,11 @@
         "setup": {
           "nixPkgs": [
             "php83",
-            "php83Packages.fpm",
             "php83Extensions.pdo",
             "php83Extensions.pgsql",
             "nginx"
           ]
+
         }
       }
     }
