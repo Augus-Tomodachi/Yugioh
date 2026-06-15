@@ -122,7 +122,9 @@ body {
 .maleta-options-container { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; }
 .maleta-options-container .btn { margin:10px; padding:15px 25px; font-size:1rem; }
 
-/* Header */
+/* =========================
+   HEADER (CORREGIDO)
+   ========================= */
 .header {
     background: rgba(26, 26, 46, 0.92);
     backdrop-filter: blur(12px);
@@ -132,7 +134,9 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    flex-wrap: wrap;
+    /* Forzar una sola línea, sin wrap */
+    flex-wrap: nowrap;
+    overflow: hidden;
     z-index: 100;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     min-height: 60px;
@@ -157,13 +161,16 @@ body.light-mode .header {
     gap: 15px;
     flex: 1;
     justify-content: center;
-    min-width: 0;
+    min-width: 0;          /* Permite que se encoja si es necesario */
+    overflow: hidden;      /* Evita que el contenido largo desborde */
 }
 .user-info {
     color: var(--gold);
     font-weight: 600;
     font-size: 0.9rem;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;  /* Muestra puntos suspensivos si el nombre es muy largo */
 }
 .season-badge {
     background: rgba(var(--maleta-glow-rgb), 0.2);
@@ -174,6 +181,8 @@ body.light-mode .header {
     font-size: 0.75rem;
     letter-spacing: 1px;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .header-actions {
     display: flex;
@@ -273,7 +282,11 @@ body.light-mode .left-panel, body.light-mode .right-panel { background:rgba(255,
 .loading-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:998; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:15px; }
 .loading-text { font-family:var(--font-display); color:var(--gold); }
 
-@media (max-width:768px) {
+/* =========================
+   MEDIA QUERIES (ajustadas)
+   ========================= */
+/* Solo apilar verticalmente en pantallas muy pequeñas */
+@media (max-width: 600px) {
     .header {
         flex-direction: column;
         gap: 8px;
@@ -288,7 +301,8 @@ body.light-mode .left-panel, body.light-mode .right-panel { background:rgba(255,
         justify-content: center;
     }
 }
-@media (max-width:1000px) {
+/* Reducir anchos de paneles laterales en tablets */
+@media (max-width: 1000px) {
     .left-panel, .right-panel { width:230px; min-width:230px; }
     .grid { grid-template-columns:repeat(auto-fill, minmax(96px,1fr)); }
 }
