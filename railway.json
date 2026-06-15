@@ -2,9 +2,16 @@
   "build": {
     "builder": "NIXPACKS",
     "nixpacksConfig": {
+      "providers": [],
       "phases": {
         "setup": {
-          "nixPkgs": ["php", "php82Packages.fpm", "nginx"]
+          "nixPkgs": [
+            "php",
+            "phpExtensions.fpm",
+            "phpExtensions.pgsql",
+            "phpExtensions.pdo",
+            "nginx"
+          ]
         }
       }
     }
