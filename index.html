@@ -5,18 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Maletas - Yu‑Gi‑Oh! Temporada</title>
 
-    <!-- Fuentes -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Librerías -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/vanilla-tilt@1/dist/vanilla-tilt.min.js"></script>
 
-    <!-- Estilos propios -->
     <link rel="stylesheet" href="style/style_index.css">
 </head>
 <body>
@@ -32,7 +29,6 @@
                     <p class="auth-subtitle">Yu‑Gi‑Oh! Trading Card Game</p>
                 </div>
 
-                <!-- Login -->
                 <div id="loginForm" class="auth-form active">
                     <h2 class="form-title">Iniciar Sesión</h2>
                     <div class="input-group">
@@ -53,7 +49,6 @@
                     </div>
                 </div>
 
-                <!-- Registro -->
                 <div id="registerForm" class="auth-form">
                     <h2 class="form-title">Crear Cuenta</h2>
                     <div class="input-group">
@@ -87,7 +82,7 @@
         </div>
     </div>
 
-    <!-- Selección de maleta (primera vez en la temporada) -->
+    <!-- Selección de maleta -->
     <div id="maletaSelectOverlay" class="fullscreen-overlay" style="display:none;">
         <div class="maleta-select-box">
             <h2 class="auth-title">Elige tu maleta</h2>
@@ -100,16 +95,19 @@
     <!-- Contenido principal -->
     <div id="mainContent" style="display:none;">
         <header class="header">
-            <span class="logo">MALETAS</span>
-            <span id="userInfo" class="user-info"></span>
-            <span id="seasonInfo" class="season-badge"></span>
-            <button class="btn" id="btnToggleTheme" title="Modo oscuro / claro">🌓</button>
-            <button class="btn generate" id="btnGenerateYDK">📥 Generar .ydk</button>
-            <button class="btn danger" id="btnLogout">Cerrar sesión</button>
+            <span class="logo">⚡ MALETAS</span>
+            <div class="header-info">
+                <span id="userInfo" class="user-info"></span>
+                <span id="seasonInfo" class="season-badge"></span>
+            </div>
+            <div class="header-actions">
+                <button class="btn icon-btn" id="btnToggleTheme" title="Modo oscuro / claro">🌓</button>
+                <button class="btn generate" id="btnGenerateYDK">📥 .ydk</button>
+                <button class="btn danger" id="btnLogout">🚪 Salir</button>
+            </div>
         </header>
 
         <div class="main">
-            <!-- Detalle de carta -->
             <aside class="left-panel">
                 <div class="detail-section" id="detailSection">
                     <div class="detail-placeholder">
@@ -119,7 +117,6 @@
                 </div>
             </aside>
 
-            <!-- Grid de cartas -->
             <section class="center-panel">
                 <div class="search-bar">
                     <input type="text" id="searchInput" placeholder="🔍 Buscar carta (inglés o español)...">
@@ -130,7 +127,6 @@
                 </div>
             </section>
 
-            <!-- Deck -->
             <aside class="right-panel">
                 <div class="deck-header">
                     <h3>📋 Mi Deck</h3>
@@ -155,7 +151,6 @@
         </div>
     </div>
 
-    <!-- Modal vista previa -->
     <div class="modal-overlay" id="previewModal">
         <div class="modal">
             <h3 class="modal-title">Vista previa del mazo</h3>
@@ -166,7 +161,6 @@
         </div>
     </div>
 
-    <!-- Loading overlay -->
     <div id="loadingOverlay" class="loading-overlay" style="display:none;">
         <div class="spinner"></div>
         <div class="loading-text">Cargando...</div>
