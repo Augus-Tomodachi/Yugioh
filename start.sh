@@ -3,53 +3,96 @@ set -e
 
 echo "🚀 Iniciando servidor..."
 
-# Verificar qué PHP está disponible
+# Verificar PHP
 echo "📋 PHP disponibles:"
-which php || echo "No php found"
-which php-fpm || echo "No php-fpm found"
-ls /usr/bin/php* 2>/dev/null || echo "No PHP binaries"
-ls /usr/sbin/php* 2>/dev/null || echo "No PHP sbin"
+which php
+which php-fpm
 
-# Buscar php-fpm
-PHP_FPM=$(find / -name "php-fpm*" -type f 2>/dev/null | head -1)
+# Crear directorios necesarios
+mkdir -p /tmp/php
+mkdir -p /var/log/nginx
+mkdir -p /var/lib/nginx
 
-if [ -z "$PHP_FPM" ]; then
-    echo "⚠️ PHP-FPM no encontrado, buscando alternativas..."
-    
-    # Intentar con diferentes versiones
-    for version in 8.3 8.2 8.1 8.0; do
-        if [ -f "/usr/sbin/php-fpm${version}" ]; then
-            PHP_FPM="/usr/sbin/php-fpm${version}"
-            break
-        fi
-        if [ -f "/usr/bin/php-fpm${version}" ]; then
-            PHP_FPM="/usr/bin/php-fpm${version}"
-            break
-        fi
-    done
-fi
-
+# Configurar PHP-FPM
+PHP_FPM=$(which php-fpm)
 if [ -n "$PHP_FPM" ]; then
     echo "✅ PHP-FPM encontrado en: $PHP_FPM"
     
-    # Crear directorios necesarios
-    mkdir -p /var/log/nginx
-    mkdir -p /var/run/php
-    
-    # Iniciar PHP-FPM
+    # Crear configuración de PHP-FPM
+    cat > /tmp/php-fpm.conf << 'EOF'
+[global]
+pid = /tmp/php-fpm.pid
+error_log = /tmp/php-fpm.log
+
+[www]
+listen = /tmp/php-fpm.sock
+listen.mode = 0666
+user = root
+group = root
+pm = dynamic
+pm.max_children = 5
+pm.start_servers = 2
+pm.min_spare_servers = 1
+pm.max_spare_servers = 3
+EOF
+
     echo "📦 Iniciando PHP-FPM..."
-    $PHP_FPM -D --fpm-config /etc/php/php-fpm.conf 2>/dev/null || \
-    $PHP_FPM -D 2>/dev/null || \
-    echo "⚠️ No se pudo iniciar PHP-FPM"
-else
-    echo "❌ PHP-FPM no disponible, usando PHP built-in server"
+    $PHP_FPM -y /tmp/php-fpm.conf -D
+    
+    # Verificar que inició
+    sleep 1
+    if [ -S /tmp/php-fpm.sock ]; then
+        echo "✅ PHP-FPM corriendo"
+    else
+        echo "⚠️ PHP-FPM no inició correctamente"
+    fi
 fi
 
-# Iniciar Nginx si existe
-if command -v nginx &> /dev/null; then
-    echo "🌐 Iniciando Nginx en puerto ${PORT:-80}..."
-    nginx -g "daemon off;"
-else
-    echo "❌ Nginx no encontrado, usando PHP built-in server"
-    php -S 0.0.0.0:${PORT:-80} -t /app /app/router.php
-fi
+# Configurar Nginx
+cat > /tmp/nginx.conf << EOF
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    
+    sendfile on;
+    keepalive_timeout 65;
+    
+    access_log /dev/stdout;
+    error_log /dev/stderr;
+
+    server {
+        listen ${PORT:-8080};
+        server_name _;
+        root /app;
+
+        # CORS
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Authorization" always;
+
+        if (\$request_method = 'OPTIONS') {
+            return 204;
+        }
+
+        # API PHP
+        location /api/ {
+            fastcgi_pass unix:/tmp/php-fpm.sock;
+            fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+            include fastcgi_params;
+            fastcgi_read_timeout 300;
+        }
+
+        # Archivos estáticos
+        location / {
+            try_files \$uri \$uri/ /index.html;
+        }
+    }
+}
+EOF
+
+echo "🌐 Iniciando Nginx en puerto ${PORT:-8080}..."
+nginx -c /tmp/nginx.conf -g "daemon off;"
