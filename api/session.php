@@ -32,7 +32,7 @@ if (!$pdo) {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT id, nombre, email, vidas, maleta, avatar_seed FROM usuarios WHERE id = :id");
+    $stmt = $pdo->prepare("SELECT id, nombre, email, vidas, maleta FROM usuarios WHERE id = :id");
     $stmt->execute([':id' => $_SESSION['user_id']]);
     $user = $stmt->fetch();
 
@@ -45,7 +45,6 @@ try {
                 'email' => $user['email'] ?? '',
                 'vidas' => (int)$user['vidas'],
                 'maleta' => $user['maleta'],
-                'avatar_seed' => $user['avatar_seed'] ?? ''
             ]
         ]);
     } else {
