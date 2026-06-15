@@ -24,7 +24,6 @@ $nombre = trim($input['nombre'] ?? '');
 $email = trim($input['email'] ?? '');
 $password = $input['password'] ?? '';
 
-// Validaciones
 if (strlen($nombre) < 3 || strlen($nombre) > 50) {
     echo json_encode(['error' => 'El nombre debe tener entre 3 y 50 caracteres']);
     exit;
@@ -45,7 +44,7 @@ try {
     $stmt->execute([
         ':nombre' => $nombre,
         ':email' => $email,
-        ':hash' => $hash,
+        ':hash' => $hash
     ]);
 
     echo json_encode([
@@ -55,7 +54,6 @@ try {
     ]);
 } catch (PDOException $e) {
     if ($e->getCode() == 23505) {
-        // Violación de unicidad
         $msg = (strpos($e->getMessage(), 'email') !== false)
             ? 'El correo ya está registrado'
             : 'El nombre de usuario ya existe';
