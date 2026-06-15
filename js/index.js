@@ -1,64 +1,53 @@
 /**
  * Maletas Yu‑Gi‑Oh! - Sistema de Temporadas
- * Versión: 2.0.1
+ * Versión 3.0 (PHP + localStorage híbrido)
  */
-
 (function () {
     'use strict';
 
-    // ============ CONSTANTES ============
     const API_YGO = 'https://db.ygoprodeck.com/api/v7/cardinfo.php';
     const CARDS_PER_PAGE = 30;
     const MAX_DECK_SIZE = 40;
+    const CURRENT_SEASON_NUMBER = 1;
+    const SEASONS_DATA = {
+        1: { numero: 1, maletas: ['Maleta Cobalto', 'Maleta Purpura', 'Maleta Cobre'] },
+        2: { numero: 2, maletas: ['Maleta Dragón', 'Maleta Guerrero', 'Maleta Mago'] }
+    };
 
-    // ============ REFERENCIAS DOM ============
-    const $ = (selector) => document.querySelector(selector);
-    const $$ = (selector) => document.querySelectorAll(selector);
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
 
     const dom = {
-        // Auth
         authOverlay: $('#authOverlay'),
         maletaSelectOverlay: $('#maletaSelectOverlay'),
         mainContent: $('#mainContent'),
         loginForm: $('#loginForm'),
         registerForm: $('#registerForm'),
-        loginNombre: $('#loginNombre'),
+        loginEmail: $('#loginEmail'),
         loginPassword: $('#loginPassword'),
         regNombre: $('#regNombre'),
+        regEmail: $('#regEmail'),
         regPassword: $('#regPassword'),
         seasonTitle: $('#seasonTitle'),
         maletaOptions: $('#maletaOptions'),
-
-        // Header
         userInfo: $('#userInfo'),
         seasonInfo: $('#seasonInfo'),
         maletaTitle: $('#maletaTitle'),
         btnToggleTheme: $('#btnToggleTheme'),
         btnLogout: $('#btnLogout'),
-
-        // Center
         grid: $('#cardGrid'),
         searchInput: $('#searchInput'),
-
-        // Deck
         deckList: $('#deckList'),
         deckEmpty: $('#deckEmpty'),
         deckCount: $('#deckCount'),
         deckProgress: $('#deckProgressFill'),
         statsPanel: $('#statsPanel'),
-
-        // Detail
         detailSection: $('#detailSection'),
-
-        // Modal
         previewModal: $('#previewModal'),
         previewGrid: $('#previewGrid'),
-
-        // Loading
         loadingOverlay: $('#loadingOverlay'),
     };
 
-    // ============ ESTADO GLOBAL ============
     const state = {
         allCards: [],
         cardsByMaleta: {},
@@ -75,51 +64,25 @@
     };
 
     // ============ TEMA ============
-    (function initTheme() {
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme === 'light') {
-            document.body.classList.add('light-mode');
-        }
-
-        if (dom.btnToggleTheme) {
-            dom.btnToggleTheme.addEventListener('click', () => {
-                document.body.classList.toggle('light-mode');
-                localStorage.setItem(
-                    'theme',
-                    document.body.classList.contains('light-mode') ? 'light' : 'dark'
-                );
-            });
-        }
+    (function() {
+        if (localStorage.getItem('theme') === 'light') document.body.classList.add('light-mode');
+        dom.btnToggleTheme.addEventListener('click', () => {
+            document.body.classList.toggle('light-mode');
+            localStorage.setItem('theme', document.body.classList.contains('light-mode') ? 'light' : 'dark');
+        });
     })();
 
-    // ============ UTILIDADES ============
-    function showLoading(message = 'Cargando...') {
-        if (!dom.loadingOverlay) return;
-        const loadingText = dom.loadingOverlay.querySelector('.loading-text');
-        if (loadingText) {
-            loadingText.textContent = message;
-        }
+    function showLoading(m = 'Cargando...') {
+        dom.loadingOverlay.querySelector('.loading-text').textContent = m;
         dom.loadingOverlay.style.display = 'flex';
     }
-
-    function hideLoading() {
-        if (!dom.loadingOverlay) return;
-        dom.loadingOverlay.style.display = 'none';
-    }
-
-    function toast(message, type = 'info') {
-        const validTypes = ['success', 'error', 'warning', 'info', 'question'];
-        const icon = validTypes.includes(type) ? type : 'info';
+    function hideLoading() { dom.loadingOverlay.style.display = 'none'; }
+    function toast(msg, type = 'info') {
         Swal.fire({
-            toast: true,
-            position: 'top-end',
-            icon: icon,
-            title: message,
-            showConfirmButton: false,
-            timer: 2500,
-            timerProgressBar: true,
+            toast: true, position: 'top-end', icon: type, title: msg,
+            showConfirmButton: false, timer: 2500, timerProgressBar: true,
             background: getComputedStyle(document.body).getPropertyValue('--panel').trim(),
-            color: getComputedStyle(document.body).getPropertyValue('--text').trim(),
+            color: getComputedStyle(document.body).getPropertyValue('--text').trim()
         });
     }
 
@@ -128,7 +91,6 @@
             'Maleta Cobalto': { hex: '#3b82f6', rgb: '59,130,246' },
             'Maleta Purpura': { hex: '#8b5cf6', rgb: '139,92,246' },
             'Maleta Cobre': { hex: '#f97316', rgb: '249,115,22' },
-            // Añadir futuras maletas aquí con sus colores
         };
         const g = glows[maleta] || { hex: '#3b82f6', rgb: '59,130,246' };
         document.documentElement.style.setProperty('--maleta-glow', g.hex);
@@ -140,968 +102,437 @@
         if (!text) return text;
         const key = text.trim();
         if (state.translationCache[key]) return state.translationCache[key];
-
-        const lsKey = 'tr_' + key.toLowerCase().replace(/\s+/g, '_').substring(0, 50);
         try {
-            const cached = localStorage.getItem(lsKey);
-            if (cached) {
-                state.translationCache[key] = cached;
-                return cached;
+            const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(key)}&langpair=en|es`);
+            const d = await r.json();
+            if (d?.responseData?.translatedText) {
+                state.translationCache[key] = d.responseData.translatedText;
+                return d.responseData.translatedText;
             }
-        } catch (e) { /* ignorar */ }
-
-        try {
-            const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(key)}&langpair=en|es`;
-            const resp = await fetch(url);
-            const data = await resp.json();
-            if (data?.responseData?.translatedText) {
-                const translated = data.responseData.translatedText;
-                state.translationCache[key] = translated;
-                try {
-                    localStorage.setItem(lsKey, translated);
-                } catch (e) { /* ignorar */ }
-                return translated;
-            }
-        } catch (e) {
-            console.warn('Error de traducción:', e);
-        }
+        } catch(e) {}
         return key;
     }
 
     async function translateCardData(data) {
         if (!data) return data;
-        const translated = { ...data };
-        translated.descOriginal = data.desc;
-        if (data.name) translated.name = await translateText(data.name);
-        if (data.type) translated.type = await translateText(data.type);
-        if (data.race) translated.race = await translateText(data.race);
-        if (data.attribute) translated.attribute = await translateText(data.attribute);
-        if (data.desc) translated.desc = await translateText(data.desc);
-        return translated;
+        const t = { ...data, descOriginal: data.desc };
+        t.name = await translateText(data.name);
+        t.type = await translateText(data.type);
+        t.race = await translateText(data.race);
+        t.attribute = await translateText(data.attribute);
+        t.desc = await translateText(data.desc);
+        return t;
     }
 
     // ============ API YUGIOH ============
     async function fetchCardAPI(name) {
         if (state.apiCache[name]) return state.apiCache[name];
-
-        const lsKey = 'ygocard_' + name.toLowerCase().replace(/\s+/g, '_');
         try {
-            const cached = localStorage.getItem(lsKey);
-            if (cached) {
-                state.apiCache[name] = JSON.parse(cached);
-                return state.apiCache[name];
+            let r = await fetch(API_YGO + '?fname=' + encodeURIComponent(name));
+            let d = await r.json();
+            if (!d.data?.length) {
+                r = await fetch(API_YGO + '?name=' + encodeURIComponent(name));
+                d = await r.json();
             }
-        } catch (e) { /* ignorar */ }
-
-        try {
-            let url = API_YGO + '?fname=' + encodeURIComponent(name);
-            let resp = await fetch(url);
-            if (!resp.ok) throw new Error('API error');
-            let data = await resp.json();
-
-            if (!data.data || data.data.length === 0) {
-                url = API_YGO + '?name=' + encodeURIComponent(name);
-                resp = await fetch(url);
-                if (!resp.ok) throw new Error('API error');
-                data = await resp.json();
-            }
-
-            if (data.data && data.data.length > 0) {
-                let card = data.data[0];
-                card = await translateCardData(card);
+            if (d.data?.length) {
+                const card = await translateCardData(d.data[0]);
                 state.apiCache[name] = card;
-                try {
-                    localStorage.setItem(lsKey, JSON.stringify(card));
-                } catch (e) { /* ignorar */ }
                 return card;
             }
-        } catch (e) {
-            console.error('Error fetching card:', name, e);
-        }
+        } catch(e) {}
         return null;
     }
 
-    // ============ CARGA DE cartas.json ============
+    // ============ CARTAS JSON ============
     async function loadCartasJSON() {
         try {
             showLoading('Cargando cartas...');
-            const resp = await fetch('../cartas.json');
-            if (!resp.ok) throw new Error('No se pudo cargar cartas.json');
-            const json = await resp.json();
-
-            if (!Array.isArray(json)) throw new Error('Formato inválido');
-
+            const r = await fetch('cartas.json');
+            const json = await r.json();
             state.allCards = json;
             state.cardsByMaleta = {};
-
-            json.forEach((card) => {
-                if (!state.cardsByMaleta[card.Maleta]) {
-                    state.cardsByMaleta[card.Maleta] = [];
-                }
-                state.cardsByMaleta[card.Maleta].push(card);
+            json.forEach(c => {
+                if (!state.cardsByMaleta[c.Maleta]) state.cardsByMaleta[c.Maleta] = [];
+                state.cardsByMaleta[c.Maleta].push(c);
             });
-
-            console.log(`✅ cartas.json cargado: ${json.length} cartas`);
             hideLoading();
-        } catch (e) {
+        } catch(e) {
             hideLoading();
-            console.error('Error cargando cartas.json:', e);
-            toast('Error al cargar las cartas', 'error');
+            toast('Error cargando cartas.json', 'error');
         }
     }
 
-    // ============ DETALLE DE CARTA ============
+    // ============ DETALLE ============
     function clearDetail() {
-        dom.detailSection.innerHTML = `
-            <div class="detail-placeholder">
-                <span class="detail-icon">🃏</span>
-                <p>Pasa el cursor sobre una carta<br>para ver sus detalles</p>
-            </div>`;
+        dom.detailSection.innerHTML = `<div class="detail-placeholder"><span class="detail-icon">🃏</span><p>Pasa el cursor sobre una carta<br>para ver sus detalles</p></div>`;
         state.currentDetailCard = null;
     }
-
     async function showDetailForCard(card) {
         state.currentDetailCard = card;
-        dom.detailSection.innerHTML = `
-            <div style="text-align:center; padding:20px;">
-                <div class="spinner"></div>
-            </div>`;
-
-        try {
-            const data = await fetchCardAPI(card.Nombre);
-            if (state.currentDetailCard?.Nombre !== card.Nombre) return;
-
-            if (data) {
-                const img = data.card_images?.[0]?.image_url || '';
-                const desc = state.showOriginalLang
-                    ? data.descOriginal || data.desc
-                    : data.desc;
-
-                dom.detailSection.innerHTML = `
-                    <div class="detail-card animate__animated animate__fadeIn">
-                        ${img ? `<img src="${img}" alt="${data.name}" loading="lazy">` : ''}
-                        <div class="detail-name">${data.name}</div>
-                        <div class="detail-meta">
-                            ${data.type ? `<span>${data.type}</span>` : ''}
-                            ${data.attribute ? `<span>${data.attribute}</span>` : ''}
-                            ${data.race ? `<span>${data.race}</span>` : ''}
-                            ${data.level !== undefined ? `<span>Nivel ${data.level}</span>` : ''}
-                        </div>
-                        ${data.atk !== undefined || data.def !== undefined ? `
-                            <div style="display:flex; gap:16px; justify-content:center; margin:8px 0; font-weight:700;">
-                                <span style="color:#fc8181;">ATK ${data.atk ?? '?'}</span>
-                                <span style="color:#63b3ed;">DEF ${data.def ?? '?'}</span>
-                            </div>` : ''}
-                        <div class="detail-desc">${desc || 'Sin descripción.'}</div>
-                        <span class="lang-toggle" id="langToggle">
-                            ${state.showOriginalLang ? 'Ver en español' : 'Ver original (inglés)'}
-                        </span>
-                    </div>`;
-
-                document.getElementById('langToggle')?.addEventListener('click', () => {
-                    state.showOriginalLang = !state.showOriginalLang;
-                    if (state.currentDetailCard) showDetailForCard(state.currentDetailCard);
-                });
-            } else {
-                dom.detailSection.innerHTML = `
-                    <p style="color:var(--danger); text-align:center;">Carta no encontrada en la API.</p>`;
-            }
-        } catch (e) {
+        dom.detailSection.innerHTML = '<div style="text-align:center;padding:20px;"><div class="spinner"></div></div>';
+        const data = await fetchCardAPI(card.Nombre);
+        if (state.currentDetailCard?.Nombre !== card.Nombre) return;
+        if (data) {
+            const img = data.card_images?.[0]?.image_url || '';
+            const desc = state.showOriginalLang ? (data.descOriginal || data.desc) : data.desc;
             dom.detailSection.innerHTML = `
-                <p style="color:var(--danger); text-align:center;">Error al obtener datos.</p>`;
+                <div class="detail-card animate__animated animate__fadeIn">
+                    ${img ? `<img src="${img}" alt="${data.name}">` : ''}
+                    <div class="detail-name">${data.name}</div>
+                    <div class="detail-meta">
+                        ${data.type?`<span>${data.type}</span>`:''}
+                        ${data.attribute?`<span>${data.attribute}</span>`:''}
+                        ${data.race?`<span>${data.race}</span>`:''}
+                        ${data.level!==undefined?`<span>Nivel ${data.level}</span>`:''}
+                    </div>
+                    <div class="detail-desc">${desc||'Sin descripción.'}</div>
+                    <span class="lang-toggle" id="langToggle">${state.showOriginalLang?'Ver en español':'Ver original (inglés)'}</span>
+                </div>`;
+            document.getElementById('langToggle')?.addEventListener('click', () => {
+                state.showOriginalLang = !state.showOriginalLang;
+                showDetailForCard(card);
+            });
+        } else {
+            dom.detailSection.innerHTML = '<p style="color:var(--danger)">Carta no encontrada.</p>';
         }
     }
 
-    // ============ GESTIÓN DEL MAZO ============
-    function isCardInDeck(cardName) {
-        return state.deckCards.some((c) => c.Nombre === cardName);
-    }
-
+    // ============ DECK ============
+    function isCardInDeck(name) { return state.deckCards.some(c => c.Nombre === name); }
     function addCardToDeck(cardObj) {
-        if (isCardInDeck(cardObj.Nombre)) {
-            removeCardFromDeck(cardObj.Nombre);
-            return false;
-        }
-        if (state.deckCards.length >= MAX_DECK_SIZE) {
-            toast(`Límite de ${MAX_DECK_SIZE} cartas alcanzado`, 'warning');
-            return false;
-        }
-
-        state.deckCards.push({
-            ...cardObj,
-            apiData: state.apiCache[cardObj.Nombre] || null,
-        });
-
-        fetchCardAPI(cardObj.Nombre).then((data) => {
-            const dc = state.deckCards.find((c) => c.Nombre === cardObj.Nombre);
-            if (dc) dc.apiData = data;
+        if (isCardInDeck(cardObj.Nombre)) { removeCardFromDeck(cardObj.Nombre); return false; }
+        if (state.deckCards.length >= MAX_DECK_SIZE) { toast('Límite alcanzado','warning'); return false; }
+        state.deckCards.push({ ...cardObj, apiData: state.apiCache[cardObj.Nombre] || null });
+        fetchCardAPI(cardObj.Nombre).then(d => {
+            const c = state.deckCards.find(x => x.Nombre === cardObj.Nombre);
+            if (c) c.apiData = d;
             updateDeckView();
         });
-
-        updateDeckView();
-        renderGrid();
-        autoSaveDeck();
-        return true;
+        updateDeckView(); renderGrid(); autoSaveDeck(); return true;
     }
-
-    function removeCardFromDeck(cardName) {
-        state.deckCards = state.deckCards.filter((c) => c.Nombre !== cardName);
-        if (state.currentDetailCard?.Nombre === cardName) clearDetail();
-        updateDeckView();
-        renderGrid();
-        autoSaveDeck();
+    function removeCardFromDeck(name) {
+        state.deckCards = state.deckCards.filter(c => c.Nombre !== name);
+        if (state.currentDetailCard?.Nombre === name) clearDetail();
+        updateDeckView(); renderGrid(); autoSaveDeck();
     }
-
-    function clearDeck(silent = false) {
+    function clearDeck(silent=false) {
         state.deckCards = [];
-        updateDeckView();
-        renderGrid();
-        autoSaveDeck();
-        if (!silent) toast('Mazo vaciado', 'info');
+        updateDeckView(); renderGrid(); autoSaveDeck();
+        if (!silent) toast('Mazo vaciado','info');
     }
-
     function moveDeckItem(from, to) {
-        if (from === to) return;
-        const [item] = state.deckCards.splice(from, 1);
-        state.deckCards.splice(to, 0, item);
-        updateDeckView();
-        autoSaveDeck();
+        if (from===to) return;
+        const [item] = state.deckCards.splice(from,1);
+        state.deckCards.splice(to,0,item);
+        updateDeckView(); autoSaveDeck();
     }
 
     function updateDeckView() {
         dom.deckCount.textContent = `${state.deckCards.length}/${MAX_DECK_SIZE}`;
-        dom.deckProgress.style.width = `${Math.min(
-            100,
-            (state.deckCards.length / MAX_DECK_SIZE) * 100
-        )}%`;
-
-        // Limpiar items existentes
-        dom.deckList.querySelectorAll('.deck-item').forEach((el) => el.remove());
-
+        dom.deckProgress.style.width = Math.min(100, (state.deckCards.length/MAX_DECK_SIZE)*100) + '%';
+        dom.deckList.querySelectorAll('.deck-item').forEach(e => e.remove());
         if (state.deckCards.length === 0) {
             dom.deckEmpty.style.display = 'block';
         } else {
             dom.deckEmpty.style.display = 'none';
-
             state.deckCards.forEach((card, idx) => {
-                const item = createDeckItem(card, idx);
+                const item = document.createElement('div');
+                item.className = 'deck-item animate__animated animate__fadeInRight';
+                item.draggable = true; item.dataset.index = idx; item.dataset.cardName = card.Nombre;
+                item.addEventListener('dragstart', e => { item.classList.add('dragging'); e.dataTransfer.setData('text/plain', card.Nombre); });
+                item.addEventListener('dragend', () => item.classList.remove('dragging'));
+                item.addEventListener('dragover', e => e.preventDefault());
+                item.addEventListener('drop', e => {
+                    e.preventDefault();
+                    const from = parseInt(document.querySelector('.deck-item.dragging')?.dataset.index);
+                    if (!isNaN(from) && from !== idx) moveDeckItem(from, idx);
+                });
+                item.addEventListener('click', e => { if (!e.target.classList.contains('deck-remove')) showDetailForCard(card); });
+                const img = document.createElement('img'); img.className = 'deck-thumb';
+                img.src = card.apiData?.card_images?.[0]?.image_url_small || 'data:image/svg+xml,...';
+                const nameSpan = document.createElement('span'); nameSpan.className = 'deck-name'; nameSpan.textContent = card.apiData?.name || card.Nombre;
+                const remBtn = document.createElement('button'); remBtn.className = 'deck-remove'; remBtn.textContent = '×';
+                remBtn.addEventListener('click', e => { e.stopPropagation(); removeCardFromDeck(card.Nombre); });
+                item.appendChild(img); item.appendChild(nameSpan); item.appendChild(remBtn);
                 dom.deckList.appendChild(item);
             });
-
-            applyTilt('.deck-item');
+            if (window.VanillaTilt) VanillaTilt.init(document.querySelectorAll('.deck-item'), { max:7, speed:300, glare:true, 'max-glare':0.2, scale:1.0 });
         }
         updateStats();
     }
 
-    function createDeckItem(card, idx) {
-        const item = document.createElement('div');
-        item.className = 'deck-item animate__animated animate__fadeInRight';
-        item.style.setProperty('--animate-duration', '0.35s');
-        item.draggable = true;
-        item.dataset.index = idx;
-        item.dataset.cardName = card.Nombre;
-
-        // Drag events
-        item.addEventListener('dragstart', (e) => {
-            item.classList.add('dragging');
-            e.dataTransfer.setData('text/plain', card.Nombre);
-            e.dataTransfer.effectAllowed = 'move';
-        });
-        item.addEventListener('dragend', () => item.classList.remove('dragging'));
-        item.addEventListener('dragover', (e) => e.preventDefault());
-        item.addEventListener('drop', (e) => {
-            e.preventDefault();
-            const from = parseInt(
-                document.querySelector('.deck-item.dragging')?.dataset.index
-            );
-            if (!isNaN(from) && from !== idx) moveDeckItem(from, idx);
-        });
-
-        // Click para ver detalle
-        item.addEventListener('click', (e) => {
-            if (e.target.classList.contains('deck-remove')) return;
-            showDetailForCard(card);
-        });
-
-        // Imagen
-        const img = document.createElement('img');
-        img.className = 'deck-thumb';
-        img.alt = card.Nombre;
-        img.src =
-            card.apiData?.card_images?.[0]?.image_url_small ||
-            'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="36" height="52"%3E%3Crect fill="%23333" width="36" height="52" rx="4"/%3E%3Ctext fill="%23aaa" font-size="8" x="5" y="30"%3E?%3C/text%3E%3C/svg%3E';
-
-        // Nombre
-        const nameSpan = document.createElement('span');
-        nameSpan.className = 'deck-name';
-        nameSpan.textContent = card.apiData?.name || card.Nombre;
-
-        // Botón eliminar
-        const removeBtn = document.createElement('button');
-        removeBtn.className = 'deck-remove';
-        removeBtn.textContent = '×';
-        removeBtn.title = 'Eliminar del mazo';
-        removeBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            removeCardFromDeck(card.Nombre);
-        });
-
-        item.appendChild(img);
-        item.appendChild(nameSpan);
-        item.appendChild(removeBtn);
-
-        return item;
-    }
-
     function updateStats() {
-        const stats = {
-            monster: 0,
-            spell: 0,
-            trap: 0,
-            attributes: {},
-            races: {},
-            levels: [],
-        };
-
-        state.deckCards.forEach((c) => {
+        const stats = { monster:0, spell:0, trap:0, attributes:{}, races:{}, levels:[] };
+        state.deckCards.forEach(c => {
             if (!c.apiData) return;
-            const type = c.apiData.type || '';
-            if (type.includes('Monster')) stats.monster++;
-            else if (type.includes('Spell')) stats.spell++;
-            else if (type.includes('Trap')) stats.trap++;
-
-            if (c.apiData.attribute) {
-                stats.attributes[c.apiData.attribute] =
-                    (stats.attributes[c.apiData.attribute] || 0) + 1;
-            }
-            if (c.apiData.race) {
-                stats.races[c.apiData.race] = (stats.races[c.apiData.race] || 0) + 1;
-            }
+            const t = c.apiData.type || '';
+            if (t.includes('Monster')) stats.monster++;
+            else if (t.includes('Spell')) stats.spell++;
+            else if (t.includes('Trap')) stats.trap++;
+            if (c.apiData.attribute) stats.attributes[c.apiData.attribute] = (stats.attributes[c.apiData.attribute]||0)+1;
+            if (c.apiData.race) stats.races[c.apiData.race] = (stats.races[c.apiData.race]||0)+1;
             if (c.apiData.level !== undefined) stats.levels.push(c.apiData.level);
         });
-
-        const total = stats.monster + stats.spell + stats.trap;
+        const total = stats.monster+stats.spell+stats.trap;
         let html = '<h4>Estadísticas</h4>';
-
-        if (total > 0) {
-            html += `
-                <div class="stat-bar">
-                    <div class="stat-seg monster" style="width:${((stats.monster / total) * 100).toFixed(1)}%"
-                         title="Monstruos: ${stats.monster}"></div>
-                    <div class="stat-seg spell" style="width:${((stats.spell / total) * 100).toFixed(1)}%"
-                         title="Magia: ${stats.spell}"></div>
-                    <div class="stat-seg trap" style="width:${((stats.trap / total) * 100).toFixed(1)}%"
-                         title="Trampa: ${stats.trap}"></div>
-                </div>`;
-        }
-
-        html += `🟡 Monstruos: ${stats.monster} &nbsp; 🟢 Magia: ${stats.spell} &nbsp; 🔴 Trampa: ${stats.trap}<br>`;
-
-        const attrEntries = Object.entries(stats.attributes);
-        if (attrEntries.length > 0) {
-            html += 'Atributos: ' + attrEntries.map(([k, v]) => `${k}:${v}`).join(', ') + '<br>';
-        }
-
-        const raceEntries = Object.entries(stats.races);
-        if (raceEntries.length > 0) {
-            html += 'Razas: ' + raceEntries.map(([k, v]) => `${k}:${v}`).join(', ');
-        }
-
+        if (total>0) html += `<div class="stat-bar">
+            <div class="stat-seg monster" style="width:${(stats.monster/total*100).toFixed(1)}%"></div>
+            <div class="stat-seg spell" style="width:${(stats.spell/total*100).toFixed(1)}%"></div>
+            <div class="stat-seg trap" style="width:${(stats.trap/total*100).toFixed(1)}%"></div>
+        </div>`;
+        html += `🟡 Monstruos: ${stats.monster} 🟢 Magia: ${stats.spell} 🔴 Trampa: ${stats.trap}<br>`;
         dom.statsPanel.innerHTML = html;
     }
 
     async function autoSaveDeck() {
-        if (!state.currentUser || !state.activeMaleta) return;
-        const cards = state.deckCards.map((c) => c.Nombre);
-        try {
-            await fetch('../api/save_deck.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ maleta: state.activeMaleta, cards }),
-            });
-        } catch (e) {
-            console.error('Error guardando mazo:', e);
+        const cards = state.deckCards.map(c => c.Nombre);
+        // Guardar en PHP si está disponible
+        if (state.currentUser) {
+            try {
+                await fetch('api/save_deck.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ maleta: state.activeMaleta, cards }) });
+            } catch(e) {}
         }
+        // Respaldo en localStorage
+        const decks = JSON.parse(localStorage.getItem('ygo_decks') || '{}');
+        if (!decks[state.currentUser?.id]) decks[state.currentUser.id] = {};
+        decks[state.currentUser.id][state.activeMaleta] = cards;
+        localStorage.setItem('ygo_decks', JSON.stringify(decks));
     }
 
     async function loadDeckForMaleta(maleta) {
-        if (!state.currentUser) return;
-        try {
-            const resp = await fetch(
-                `../api/load_deck.php?maleta=${encodeURIComponent(maleta)}`
-            );
-            const data = await resp.json();
-            const names = data.cards || [];
-
-            state.deckCards = names.map((name) => {
-                const found = (state.cardsByMaleta[maleta] || []).find(
-                    (c) => c.Nombre === name
-                );
-                return {
-                    ...(found || { Nombre: name, Maleta: maleta }),
-                    apiData: null,
-                };
-            });
-
-            state.deckCards.forEach((c) => {
-                fetchCardAPI(c.Nombre).then((data) => {
-                    c.apiData = data;
-                    updateDeckView();
-                });
-            });
-        } catch (e) {
-            console.error('Error cargando mazo:', e);
-            state.deckCards = [];
+        let names = [];
+        // Intentar cargar desde PHP
+        if (state.currentUser) {
+            try {
+                const r = await fetch(`api/load_deck.php?maleta=${encodeURIComponent(maleta)}`);
+                const d = await r.json();
+                if (d.cards) names = d.cards;
+            } catch(e) {}
         }
+        // Fallback a localStorage
+        if (names.length === 0) {
+            const decks = JSON.parse(localStorage.getItem('ygo_decks') || '{}');
+            names = decks[state.currentUser?.id]?.[maleta] || [];
+        }
+        state.deckCards = names.map(name => ({
+            ...(state.cardsByMaleta[maleta]?.find(c => c.Nombre === name) || { Nombre: name, Maleta: maleta }),
+            apiData: null
+        }));
+        state.deckCards.forEach(c => fetchCardAPI(c.Nombre).then(d => { c.apiData = d; updateDeckView(); }));
     }
 
-    // ============ DRAG & DROP (Exponer globalmente) ============
     window.deckHandlers = {
-        handleDragOver(e) {
-            e.preventDefault();
-            e.currentTarget.classList.add('drag-over');
-        },
-        handleDragLeave(e) {
-            e.currentTarget.classList.remove('drag-over');
-        },
-        handleDrop(e) {
-            e.preventDefault();
-            e.currentTarget.classList.remove('drag-over');
+        handleDragOver: e => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); },
+        handleDragLeave: e => e.currentTarget.classList.remove('drag-over'),
+        handleDrop: e => {
+            e.preventDefault(); e.currentTarget.classList.remove('drag-over');
             const name = e.dataTransfer.getData('text/plain');
-            const card = state.allCards.find((c) => c.Nombre === name);
+            const card = state.allCards.find(c => c.Nombre === name);
             if (card) addCardToDeck(card);
-        },
+        }
     };
 
-    // ============ GRID Y BÚSQUEDA ============
+    // ============ GRID ============
     function renderGrid() {
         const all = state.cardsByMaleta[state.activeMaleta] || [];
-        const query = dom.searchInput.value.trim().toLowerCase();
-
+        const q = dom.searchInput.value.trim().toLowerCase();
         let filtered = all;
-        if (query) {
-            filtered = all.filter((card) => {
-                const eng = card.Nombre.toLowerCase();
-                const spa = (
-                    state.apiCache[card.Nombre]?.name || ''
-                ).toLowerCase();
-                return eng.includes(query) || spa.includes(query);
-            });
-        }
-
+        if (q) filtered = all.filter(c => c.Nombre.toLowerCase().includes(q) || (state.apiCache[c.Nombre]?.name||'').toLowerCase().includes(q));
         const page = state.currentPage[state.activeMaleta] || 0;
-        const start = page * CARDS_PER_PAGE;
-        const visible = filtered.slice(start, start + CARDS_PER_PAGE);
-
+        const visible = filtered.slice(page*CARDS_PER_PAGE, (page+1)*CARDS_PER_PAGE);
         dom.grid.innerHTML = '';
-
-        if (visible.length === 0) {
-            dom.grid.innerHTML = `
-                <div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--text2);">
-                    No se encontraron cartas
-                </div>`;
-            return;
-        }
-
+        if (visible.length===0) { dom.grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text2)">No hay cartas</div>'; return; }
         visible.forEach((card, i) => {
-            const cell = createCardCell(card, i);
+            const cell = document.createElement('div');
+            cell.className = 'card-cell animate__animated animate__fadeIn';
+            cell.style.animationDelay = Math.min(i,14)*0.03+'s';
+            if (isCardInDeck(card.Nombre)) cell.classList.add('in-deck');
+            cell.draggable = true;
+            cell.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', card.Nombre));
+            cell.addEventListener('click', () => addCardToDeck(card));
+            cell.addEventListener('mouseenter', () => showDetailForCard(card));
+            const imgCont = document.createElement('div'); imgCont.className = 'card-img-container';
+            const loader = document.createElement('div'); loader.className = 'loader'; imgCont.appendChild(loader);
+            const img = document.createElement('img'); img.alt = card.Nombre;
+            img.onload = () => { img.style.display='block'; loader.style.display='none'; imgCont.classList.add('loaded'); };
+            img.onerror = () => { loader.style.display='none'; imgCont.classList.add('loaded'); imgCont.innerHTML='<span style="font-size:2rem">🃏</span>'; };
+            imgCont.appendChild(img); cell.appendChild(imgCont);
+            const nameSpan = document.createElement('div'); nameSpan.className = 'card-name'; nameSpan.textContent = card.Nombre;
+            cell.appendChild(nameSpan);
+            fetchCardAPI(card.Nombre).then(d => { if (d?.card_images?.[0]) img.src = d.card_images[0].image_url_small; if (d?.name) nameSpan.textContent = d.name; });
             dom.grid.appendChild(cell);
         });
-
-        // Paginación
-        renderPagination(filtered, page);
-        applyTilt('.card-cell');
-    }
-
-    function createCardCell(card, index) {
-        const cell = document.createElement('div');
-        cell.className = 'card-cell animate__animated animate__fadeIn';
-        cell.style.animationDelay = `${Math.min(index, 14) * 0.03}s`;
-
-        if (isCardInDeck(card.Nombre)) cell.classList.add('in-deck');
-        cell.draggable = true;
-
-        cell.addEventListener('dragstart', (e) => {
-            e.dataTransfer.setData('text/plain', card.Nombre);
-        });
-        cell.addEventListener('click', () => addCardToDeck(card));
-        cell.addEventListener('mouseenter', () => showDetailForCard(card));
-
-        // Contenedor de imagen
-        const imgCont = document.createElement('div');
-        imgCont.className = 'card-img-container';
-
-        const loader = document.createElement('div');
-        loader.className = 'loader';
-        imgCont.appendChild(loader);
-
-        const img = document.createElement('img');
-        img.alt = card.Nombre;
-        img.loading = 'lazy';
-        img.onload = () => {
-            img.style.display = 'block';
-            loader.style.display = 'none';
-            imgCont.classList.add('loaded');
-        };
-        img.onerror = () => {
-            loader.style.display = 'none';
-            imgCont.classList.add('loaded');
-            imgCont.innerHTML =
-                '<span style="font-size:2rem;" title="Imagen no disponible">🃏</span>';
-        };
-        imgCont.appendChild(img);
-        cell.appendChild(imgCont);
-
-        // Nombre
-        const nameSpan = document.createElement('div');
-        nameSpan.className = 'card-name';
-        nameSpan.textContent = card.Nombre;
-        cell.appendChild(nameSpan);
-
-        // Cargar datos de la API
-        fetchCardAPI(card.Nombre).then((data) => {
-            if (data?.card_images?.[0]) {
-                img.src = data.card_images[0].image_url_small;
-            }
-            if (data?.name) {
-                nameSpan.textContent = data.name;
-            }
-        });
-
-        return cell;
-    }
-
-    function renderPagination(filtered, page) {
-        const totalPages = Math.max(1, Math.ceil(filtered.length / CARDS_PER_PAGE));
+        // Paginación simplificada
+        const totalPages = Math.ceil(filtered.length/CARDS_PER_PAGE);
         let pager = document.getElementById('pagerContainer');
-
-        if (!pager) {
-            pager = document.createElement('div');
-            pager.id = 'pagerContainer';
-            pager.style.cssText = `
-                display:flex; align-items:center; justify-content:center; gap:10px;
-                padding:12px; background:rgba(15,15,26,0.92);
-                border-top:1px solid rgba(255,255,255,0.08);
-            `;
-            document.querySelector('.center-panel').appendChild(pager);
-        }
-
+        if (!pager) { pager = document.createElement('div'); pager.id = 'pagerContainer'; pager.style.cssText = 'display:flex;justify-content:center;gap:10px;padding:12px;'; document.querySelector('.center-panel').appendChild(pager); }
         pager.innerHTML = '';
-
-        const btnPrev = document.createElement('button');
-        btnPrev.className = 'btn';
-        btnPrev.textContent = '« Prev';
-        btnPrev.disabled = page <= 0;
-        btnPrev.onclick = () => {
-            if (page > 0) {
-                state.currentPage[state.activeMaleta] = page - 1;
-                renderGrid();
-            }
-        };
-
-        const info = document.createElement('span');
-        info.style.cssText =
-            'font-weight:700; color:var(--gold); padding:0 12px; min-width:120px; text-align:center;';
-        info.textContent = `Página ${page + 1} / ${totalPages}`;
-
-        const btnNext = document.createElement('button');
-        btnNext.className = 'btn';
-        btnNext.textContent = 'Next »';
-        btnNext.disabled = page >= totalPages - 1;
-        btnNext.onclick = () => {
-            if (page < totalPages - 1) {
-                state.currentPage[state.activeMaleta] = page + 1;
-                renderGrid();
-            }
-        };
-
-        pager.appendChild(btnPrev);
-        pager.appendChild(info);
-        pager.appendChild(btnNext);
+        if (page>0) { const b = document.createElement('button'); b.className='btn'; b.textContent='« Prev'; b.onclick = () => { state.currentPage[state.activeMaleta]=page-1; renderGrid(); }; pager.appendChild(b); }
+        pager.appendChild(document.createTextNode(` ${page+1}/${totalPages} `));
+        if (page<totalPages-1) { const b = document.createElement('button'); b.className='btn'; b.textContent='Next »'; b.onclick = () => { state.currentPage[state.activeMaleta]=page+1; renderGrid(); }; pager.appendChild(b); }
+        if (window.VanillaTilt) VanillaTilt.init(document.querySelectorAll('.card-cell'), { max:7, speed:300, glare:true, 'max-glare':0.2, scale:1.0 });
     }
-
-    dom.searchInput.addEventListener('input', () => {
-        state.currentPage[state.activeMaleta] = 0;
-        renderGrid();
-    });
-
-    // ============ VANILLA TILT ============
-    function applyTilt(selector) {
-        if (!window.VanillaTilt) return;
-        const elements = Array.from(document.querySelectorAll(selector)).filter(
-            (el) => !el.classList.contains('vanilla-tilt')
-        );
-        if (elements.length > 0) {
-            VanillaTilt.init(elements, {
-                max: 7,
-                speed: 300,
-                glare: true,
-                'max-glare': 0.2,
-                scale: 1.0,
-            });
-        }
-    }
+    dom.searchInput.addEventListener('input', () => { state.currentPage[state.activeMaleta]=0; renderGrid(); });
 
     // ============ AUTENTICACIÓN ============
-    async function login(nombre, password) {
+    async function login(email, password) {
         try {
-            const resp = await fetch('../api/login.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre, password }),
-            });
-            const data = await resp.json();
-
-            if (data.success) {
-                state.currentUser = data.user;
-                updateUserDisplay();
-                await checkSeasonAndLoad();
-            } else {
-                toast(data.error, 'error');
-            }
-        } catch (e) {
-            toast('Error de conexión', 'error');
-        }
+            const r = await fetch('api/login.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password}) });
+            const d = await r.json();
+            if (d.success) {
+                state.currentUser = d.user;
+                localStorage.setItem('currentUser', JSON.stringify(d.user));
+                afterLogin();
+            } else toast(d.error, 'error');
+        } catch(e) { toast('Error de conexión', 'error'); }
     }
-
-    async function register(nombre, password) {
+    async function register(nombre, email, password) {
         try {
-            const resp = await fetch('../api/register.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre, password }),
-            });
-            const data = await resp.json();
-
-            if (data.success) {
-                toast('Registro exitoso. Ahora inicia sesión.', 'success');
-                dom.registerForm.style.display = 'none';
-                dom.loginForm.style.display = 'block';
-                dom.loginNombre.value = nombre;
-                dom.loginPassword.value = '';
-            } else {
-                toast(data.error, 'error');
-            }
-        } catch (e) {
-            toast('Error de conexión', 'error');
-        }
+            const r = await fetch('api/register.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({nombre, email, password}) });
+            const d = await r.json();
+            if (d.success) {
+                toast('Registro exitoso. Inicia sesión.', 'success');
+                showLoginForm(); dom.loginEmail.value = email; dom.loginPassword.value = '';
+            } else toast(d.error, 'error');
+        } catch(e) { toast('Error de conexión', 'error'); }
     }
-
-    async function logout() {
-        try {
-            await fetch('../api/logout.php');
-        } catch (e) {
-            /* ignorar */
-        }
-
-        state.currentUser = null;
-        state.activeMaleta = '';
-        state.deckCards = [];
-        state.currentPage = {};
-
-        showAuthOverlay();
+    function logout() {
+        fetch('api/logout.php');
+        state.currentUser = null; localStorage.removeItem('currentUser');
+        dom.authOverlay.style.display = 'flex';
         dom.mainContent.style.display = 'none';
     }
-
     async function checkSession() {
         try {
-            const resp = await fetch('../api/session.php');
-            const data = await resp.json();
-
-            if (data.logged_in) {
-                state.currentUser = data.user;
-                updateUserDisplay();
-                await checkSeasonAndLoad();
-            } else {
-                showAuthOverlay();
-            }
-        } catch (e) {
-            showAuthOverlay();
+            const r = await fetch('api/session.php');
+            const d = await r.json();
+            if (d.logged_in) { state.currentUser = d.user; afterLogin(); }
+            else { dom.authOverlay.style.display = 'flex'; }
+        } catch(e) {
+            const saved = localStorage.getItem('currentUser');
+            if (saved) { state.currentUser = JSON.parse(saved); afterLogin(); }
+            else dom.authOverlay.style.display = 'flex';
         }
     }
-
-    async function checkSeasonAndLoad() {
-        try {
-            const resp = await fetch('../api/current_season.php');
-            const data = await resp.json();
-
-            if (!data.season) {
-                toast('Error al cargar la temporada', 'error');
-                return;
-            }
-
-            state.currentSeason = data.season;
-            state.maletasActivas = data.maletas;
-
-            updateSeasonDisplay();
-
-            if (data.user_choice) {
-                // Ya eligió maleta en esta temporada
-                state.activeMaleta = data.user_choice;
-                setMaletaGlow(state.activeMaleta);
-                dom.maletaTitle.textContent = state.activeMaleta;
-                state.currentPage[state.activeMaleta] = 0;
-
-                await loadDeckForMaleta(state.activeMaleta);
-                renderGrid();
-                updateDeckView();
-                showMainContent();
-                toast(
-                    `Bienvenido a la Temporada ${state.currentSeason.numero}, tu maleta es ${state.activeMaleta}`,
-                    'success'
-                );
-            } else {
-                // Debe elegir maleta
-                showMaletaSelect();
-            }
-        } catch (e) {
-            toast('Error al cargar la temporada', 'error');
-        }
+    function afterLogin() {
+        updateUserDisplay();
+        checkSeasonAndLoad();
     }
-
-    async function elegirMaleta(maleta) {
-        try {
-            const resp = await fetch('../api/elegir_maleta.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ maleta }),
-            });
-            const data = await resp.json();
-
-            if (data.success) {
-                state.activeMaleta = maleta;
-                state.currentUser.maleta = maleta;
-                setMaletaGlow(maleta);
-                dom.maletaTitle.textContent = maleta;
-                state.currentPage[maleta] = 0;
-
-                await loadDeckForMaleta(maleta);
-                renderGrid();
-                updateDeckView();
-                showMainContent();
-                toast(`Has elegido ${maleta}`, 'success');
-            } else {
-                toast(data.error, 'error');
-            }
-        } catch (e) {
-            toast('Error al elegir la maleta', 'error');
-        }
-    }
-
     function updateUserDisplay() {
-        if (state.currentUser) {
-            dom.userInfo.textContent = `👤 ${state.currentUser.nombre} (${state.currentUser.vidas} ❤️)`;
+        if (state.currentUser) dom.userInfo.textContent = `👤 ${state.currentUser.nombre} (${state.currentUser.vidas} ❤️)`;
+    }
+
+    // ============ TEMPORADA ============
+    async function checkSeasonAndLoad() {
+        let seasonData = null;
+        try {
+            const r = await fetch('api/current_season.php');
+            const d = await r.json();
+            if (d.season) seasonData = d;
+        } catch(e) {}
+        if (!seasonData) seasonData = SEASONS_DATA[CURRENT_SEASON_NUMBER];
+        state.currentSeason = seasonData;
+        state.maletasActivas = seasonData.maletas;
+        dom.seasonTitle.textContent = `Temporada ${seasonData.numero}`;
+        dom.seasonInfo.textContent = `📅 Temporada ${seasonData.numero}`;
+
+        // Si el usuario ya eligió en esta temporada (según backend o su maleta actual)
+        let chosen = null;
+        if (state.currentUser?.maleta && seasonData.maletas.includes(state.currentUser.maleta)) chosen = state.currentUser.maleta;
+        if (!chosen && seasonData.user_choice) chosen = seasonData.user_choice;
+
+        if (chosen) {
+            state.activeMaleta = chosen;
+            setMaletaGlow(chosen);
+            dom.maletaTitle.textContent = chosen;
+            await loadDeckForMaleta(chosen);
+            renderGrid(); updateDeckView();
+            showMainContent();
+            toast(`Bienvenido a la Temporada ${seasonData.numero}, maleta: ${chosen}`, 'success');
+        } else {
+            showMaletaSelect();
         }
     }
-
-    function updateSeasonDisplay() {
-        if (state.currentSeason) {
-            dom.seasonInfo.textContent = `📅 Temporada ${state.currentSeason.numero}`;
-            if (dom.seasonTitle) {
-                dom.seasonTitle.textContent = `Temporada ${state.currentSeason.numero}`;
-            }
-        }
+    async function elegirMaleta(maleta) {
+        // Intentar guardar en backend
+        try {
+            const r = await fetch('api/elegir_maleta.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({maleta}) });
+            const d = await r.json();
+            if (d.success) {
+                state.currentUser.maleta = maleta;
+                localStorage.setItem('currentUser', JSON.stringify(state.currentUser));
+            } else { toast(d.error,'error'); return; }
+        } catch(e) { /* fallback local */ }
+        state.activeMaleta = maleta;
+        setMaletaGlow(maleta);
+        dom.maletaTitle.textContent = maleta;
+        await loadDeckForMaleta(maleta);
+        renderGrid(); updateDeckView();
+        showMainContent();
+        toast(`Has elegido ${maleta}`, 'success');
     }
 
-    function showAuthOverlay() {
-        dom.authOverlay.style.display = 'flex';
-        dom.maletaSelectOverlay.style.display = 'none';
-        dom.mainContent.style.display = 'none';
-    }
-
+    function showLoginForm() { dom.loginForm.style.display='block'; dom.registerForm.style.display='none'; }
+    function showRegisterForm() { dom.loginForm.style.display='none'; dom.registerForm.style.display='block'; }
     function showMaletaSelect() {
         dom.authOverlay.style.display = 'none';
         dom.maletaSelectOverlay.style.display = 'flex';
         dom.mainContent.style.display = 'none';
-
         dom.maletaOptions.innerHTML = '';
-        state.maletasActivas.forEach((maleta) => {
+        state.maletasActivas.forEach(m => {
             const btn = document.createElement('button');
-            btn.className = 'btn generate';
-            btn.style.cssText = 'margin: 10px; padding: 15px 25px; font-size: 1rem;';
-            btn.textContent = maleta;
-            btn.onclick = () => elegirMaleta(maleta);
+            btn.className = 'btn generate'; btn.style.cssText = 'margin:10px; padding:15px 25px; font-size:1rem;';
+            btn.textContent = m; btn.onclick = () => elegirMaleta(m);
             dom.maletaOptions.appendChild(btn);
         });
     }
-
     function showMainContent() {
         dom.authOverlay.style.display = 'none';
         dom.maletaSelectOverlay.style.display = 'none';
         dom.mainContent.style.display = 'flex';
     }
 
-    // ============ GENERAR YDK ============
-    async function generateYDK() {
-        if (state.deckCards.length === 0) {
-            toast('Añade cartas al mazo primero', 'warning');
-            return;
-        }
-
-        showLoading('Generando archivo .ydk...');
-        const ids = [];
-
-        for (const card of state.deckCards) {
-            if (!card.apiData?.id) {
-                try {
-                    card.apiData = await fetchCardAPI(card.Nombre);
-                } catch (e) {
-                    /* ignorar */
-                }
-            }
-            if (card.apiData?.id) ids.push(card.apiData.id);
-        }
-
-        hideLoading();
-
-        if (ids.length === 0) {
-            toast('No se encontraron IDs válidos', 'error');
-            return;
-        }
-
-        const content = '#main\n' + ids.join('\n') + '\n#extra\n!side\n';
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `deck_temporada${state.currentSeason?.numero || 1}_${Date.now()}.ydk`;
-        a.click();
-        URL.revokeObjectURL(url);
-
-        toast(`Archivo .ydk generado con ${ids.length} cartas`, 'success');
-    }
-
-    // ============ VISTA PREVIA DEL MAZO ============
-    function showPreview() {
-        if (state.deckCards.length === 0) {
-            toast('El mazo está vacío', 'warning');
-            return;
-        }
-
-        dom.previewGrid.innerHTML = state.deckCards
-            .map(
-                (c) => `
-                <div style="text-align:center;">
-                    <img src="${c.apiData?.card_images?.[0]?.image_url || ''}"
-                         alt="${c.Nombre}"
-                         style="width:100%; border-radius:8px; background:var(--card);"
-                         loading="lazy">
-                    <div style="font-size:0.7rem; margin-top:4px; color:var(--text2);">
-                        ${c.apiData?.name || c.Nombre}
-                    </div>
-                </div>`
-            )
-            .join('');
-
+    // ============ EVENTOS ============
+    $('#btnLogin').addEventListener('click', () => {
+        const email = dom.loginEmail.value.trim(), pass = dom.loginPassword.value;
+        if (!email || !pass) return toast('Completa los campos','warning');
+        login(email, pass);
+    });
+    $('#btnRegister').addEventListener('click', () => {
+        const nombre = dom.regNombre.value.trim(), email = dom.regEmail.value.trim(), pass = dom.regPassword.value;
+        if (!nombre || !email || !pass) return toast('Completa los campos','warning');
+        if (nombre.length<3) return toast('Nombre muy corto','warning');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('Correo inválido','warning');
+        if (pass.length<6 || !/[A-Z]/.test(pass) || !/[a-z]/.test(pass) || !/[0-9]/.test(pass))
+            return toast('Contraseña no cumple requisitos','warning');
+        register(nombre, email, pass);
+    });
+    $('#showRegister').addEventListener('click', showRegisterForm);
+    $('#showLogin').addEventListener('click', showLoginForm);
+    dom.btnLogout.addEventListener('click', logout);
+    $('#btnGenerateYDK').addEventListener('click', async () => {
+        if (state.deckCards.length===0) return toast('Mazo vacío','warning');
+        const ids = []; for (const c of state.deckCards) { if (!c.apiData?.id) c.apiData = await fetchCardAPI(c.Nombre); if (c.apiData?.id) ids.push(c.apiData.id); }
+        if (!ids.length) return toast('Sin IDs válidos','error');
+        const blob = new Blob(['#main\n'+ids.join('\n')+'\n#extra\n!side\n'], {type:'text/plain'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `deck_${Date.now()}.ydk`; a.click();
+        toast(`.ydk con ${ids.length} cartas`, 'success');
+    });
+    $('#btnPreview').addEventListener('click', () => {
+        if (state.deckCards.length===0) return toast('Mazo vacío','warning');
+        dom.previewGrid.innerHTML = state.deckCards.map(c => `<div style="text-align:center"><img src="${c.apiData?.card_images?.[0]?.image_url||''}" style="width:100%;border-radius:8px"><div style="font-size:0.7rem">${c.apiData?.name||c.Nombre}</div></div>`).join('');
         dom.previewModal.style.display = 'flex';
-    }
+    });
+    $('#btnClosePreview').addEventListener('click', () => dom.previewModal.style.display='none');
+    dom.previewModal.addEventListener('click', e => { if(e.target === dom.previewModal) dom.previewModal.style.display='none'; });
+    $('#btnClearDeck').addEventListener('click', () => {
+        if (state.deckCards.length===0) return toast('Mazo vacío','info');
+        Swal.fire({ title:'¿Vaciar mazo?', icon:'warning', showCancelButton:true, confirmButtonText:'Sí', cancelButtonText:'No' }).then(r => { if(r.isConfirmed) clearDeck(); });
+    });
 
-    function hidePreview() {
-        dom.previewModal.style.display = 'none';
-    }
-
-    // ============ EVENT LISTENERS ============
-    function attachEventListeners() {
-        // Login
-        $('#btnLogin').addEventListener('click', () => {
-            const nombre = dom.loginNombre.value.trim();
-            const password = dom.loginPassword.value;
-            if (!nombre || !password) {
-                toast('Completa todos los campos', 'warning');
-                return;
-            }
-            login(nombre, password);
-        });
-
-        // Registrar
-        $('#btnRegister').addEventListener('click', () => {
-            const nombre = dom.regNombre.value.trim();
-            const password = dom.regPassword.value;
-            if (nombre.length < 3) {
-                toast('El nombre debe tener al menos 3 caracteres', 'warning');
-                return;
-            }
-            if (password.length < 4) {
-                toast('La contraseña debe tener al menos 4 caracteres', 'warning');
-                return;
-            }
-            register(nombre, password);
-        });
-
-        // Toggle forms
-        $('#showRegister').addEventListener('click', () => {
-            dom.loginForm.style.display = 'none';
-            dom.registerForm.style.display = 'block';
-        });
-
-        $('#showLogin').addEventListener('click', () => {
-            dom.registerForm.style.display = 'none';
-            dom.loginForm.style.display = 'block';
-        });
-
-        // Logout
-        if (dom.btnLogout) {
-            dom.btnLogout.addEventListener('click', logout);
-        }
-
-        // Generar YDK
-        $('#btnGenerateYDK').addEventListener('click', generateYDK);
-
-        // Vista previa
-        $('#btnPreview').addEventListener('click', showPreview);
-        $('#btnClosePreview').addEventListener('click', hidePreview);
-        dom.previewModal.addEventListener('click', (e) => {
-            if (e.target === dom.previewModal) hidePreview();
-        });
-
-        // Limpiar mazo
-        $('#btnClearDeck').addEventListener('click', () => {
-            if (state.deckCards.length === 0) {
-                toast('El mazo ya está vacío', 'info');
-                return;
-            }
-            Swal.fire({
-                title: '¿Vaciar el mazo?',
-                text: `Se eliminarán todas las cartas del mazo de ${state.activeMaleta}.`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, vaciar',
-                cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#c53030',
-                background: getComputedStyle(document.body)
-                    .getPropertyValue('--panel')
-                    .trim(),
-                color: getComputedStyle(document.body).getPropertyValue('--text').trim(),
-            }).then((result) => {
-                if (result.isConfirmed) clearDeck();
-            });
-        });
-
-        // Enter para login
-        dom.loginPassword.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                const nombre = dom.loginNombre.value.trim();
-                const password = dom.loginPassword.value;
-                if (nombre && password) login(nombre, password);
-            }
-        });
-
-        // Enter para registro
-        dom.regPassword.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                const nombre = dom.regNombre.value.trim();
-                const password = dom.regPassword.value;
-                if (nombre && password) register(nombre, password);
-            }
-        });
-    }
-
-    // ============ INICIALIZACIÓN ============
-    async function init() {
-        attachEventListeners();
+    // ============ INICIO ============
+    (async () => {
         await loadCartasJSON();
-        await checkSession();
-    }
-
-    init();
+        checkSession();
+    })();
 })();
