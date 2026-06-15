@@ -10,52 +10,94 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Librerías externas -->
+    <!-- Librerías -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/vanilla-tilt@1/dist/vanilla-tilt.min.js"></script>
 
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="style/style_index.css">
+    <link rel="stylesheet" href="css/style_index.css">
 </head>
 <body>
     <!-- Overlay de autenticación -->
     <div id="authOverlay" class="fullscreen-overlay">
-        <div class="auth-box">
-            <!-- Formulario de Login -->
-            <div id="loginForm">
-                <h2 class="auth-title">Iniciar Sesión</h2>
-                <input id="loginNombre" type="text" placeholder="Usuario" class="input-field" autocomplete="username">
-                <input id="loginPassword" type="password" placeholder="Contraseña" class="input-field" autocomplete="current-password">
-                <button class="btn generate btn-full" id="btnLogin">Entrar</button>
-                <button class="btn btn-link" id="showRegister">¿No tienes cuenta? Regístrate</button>
-            </div>
+        <div class="auth-container">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <div class="auth-logo">
+                        <span class="logo-icon">⚡</span>
+                        <h1 class="auth-title">MALETAS</h1>
+                    </div>
+                    <p class="auth-subtitle">Yu‑Gi‑Oh! Trading Card Game</p>
+                </div>
 
-            <!-- Formulario de Registro -->
-            <div id="registerForm" style="display:none;">
-                <h2 class="auth-title">Crear Cuenta</h2>
-                <input id="regNombre" type="text" placeholder="Usuario (mín. 3 caracteres)" class="input-field" autocomplete="username">
-                <input id="regPassword" type="password" placeholder="Contraseña (mín. 4 caracteres)" class="input-field" autocomplete="new-password">
-                <button class="btn generate btn-full" id="btnRegister">Registrarse</button>
-                <button class="btn btn-link" id="showLogin">Volver al inicio de sesión</button>
+                <!-- Login -->
+                <div id="loginForm" class="auth-form active">
+                    <h2 class="form-title">Iniciar Sesión</h2>
+                    <div class="input-group">
+                        <label class="input-label"><span class="label-icon">📧</span> Correo electrónico</label>
+                        <input id="loginEmail" type="email" placeholder="ejemplo@correo.com" class="input-field" autocomplete="email">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label"><span class="label-icon">🔒</span> Contraseña</label>
+                        <div class="password-wrapper">
+                            <input id="loginPassword" type="password" placeholder="••••••••" class="input-field" autocomplete="current-password">
+                            <button type="button" class="password-toggle" id="toggleLoginPassword">👁️</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-full" id="btnLogin"><span class="btn-icon">🚀</span> Iniciar Sesión</button>
+                    <div class="form-footer">
+                        <span>¿No tienes cuenta?</span>
+                        <button class="btn btn-link" id="showRegister">Crear una cuenta</button>
+                    </div>
+                </div>
+
+                <!-- Registro -->
+                <div id="registerForm" class="auth-form">
+                    <h2 class="form-title">Crear Cuenta</h2>
+                    <div class="input-group">
+                        <label class="input-label"><span class="label-icon">👤</span> Nombre de usuario</label>
+                        <input id="regNombre" type="text" placeholder="Elige un nombre de usuario" class="input-field" autocomplete="username">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label"><span class="label-icon">📧</span> Correo electrónico</label>
+                        <input id="regEmail" type="email" placeholder="ejemplo@correo.com" class="input-field" autocomplete="email">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label"><span class="label-icon">🔒</span> Contraseña</label>
+                        <div class="password-wrapper">
+                            <input id="regPassword" type="password" placeholder="Mín. 6 caracteres" class="input-field" autocomplete="new-password">
+                            <button type="button" class="password-toggle" id="toggleRegPassword">👁️</button>
+                        </div>
+                        <div class="password-requirements">
+                            <span class="req-item" id="reqLength">✓ 6+ caracteres</span>
+                            <span class="req-item" id="reqUpper">✓ Una mayúscula</span>
+                            <span class="req-item" id="reqLower">✓ Una minúscula</span>
+                            <span class="req-item" id="reqNumber">✓ Un número</span>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-full" id="btnRegister"><span class="btn-icon">✨</span> Crear Cuenta</button>
+                    <div class="form-footer">
+                        <span>¿Ya tienes cuenta?</span>
+                        <button class="btn btn-link" id="showLogin">Iniciar sesión</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Overlay de selección de maleta (primera vez en la temporada) -->
+    <!-- Selección de maleta (primera vez en la temporada) -->
     <div id="maletaSelectOverlay" class="fullscreen-overlay" style="display:none;">
         <div class="maleta-select-box">
             <h2 class="auth-title">Elige tu maleta</h2>
-            <p class="season-info">
-                <span id="seasonTitle">Temporada ?</span>
-            </p>
+            <p class="season-info"><span id="seasonTitle">Temporada ?</span></p>
             <p class="season-subtitle">Esta decisión es permanente para esta temporada</p>
             <div id="maletaOptions" class="maleta-options-container"></div>
         </div>
     </div>
 
-    <!-- Contenido principal de la aplicación -->
+    <!-- Contenido principal -->
     <div id="mainContent" style="display:none;">
         <header class="header">
             <span class="logo">MALETAS</span>
@@ -67,7 +109,7 @@
         </header>
 
         <div class="main">
-            <!-- Panel izquierdo: detalle de carta -->
+            <!-- Detalle de carta -->
             <aside class="left-panel">
                 <div class="detail-section" id="detailSection">
                     <div class="detail-placeholder">
@@ -77,7 +119,7 @@
                 </div>
             </aside>
 
-            <!-- Centro: grid de cartas -->
+            <!-- Grid de cartas -->
             <section class="center-panel">
                 <div class="search-bar">
                     <input type="text" id="searchInput" placeholder="🔍 Buscar carta (inglés o español)...">
@@ -88,15 +130,13 @@
                 </div>
             </section>
 
-            <!-- Panel derecho: mazo -->
+            <!-- Deck -->
             <aside class="right-panel">
                 <div class="deck-header">
                     <h3>📋 Mi Deck</h3>
                     <span class="deck-count" id="deckCount">0/40</span>
                 </div>
-                <div class="deck-progress">
-                    <div class="deck-progress-fill" id="deckProgressFill"></div>
-                </div>
+                <div class="deck-progress"><div class="deck-progress-fill" id="deckProgressFill"></div></div>
                 <div class="deck-list" id="deckList"
                      ondragover="window.deckHandlers.handleDragOver(event)"
                      ondragleave="window.deckHandlers.handleDragLeave(event)"
@@ -115,7 +155,7 @@
         </div>
     </div>
 
-    <!-- Modal vista previa del mazo -->
+    <!-- Modal vista previa -->
     <div class="modal-overlay" id="previewModal">
         <div class="modal">
             <h3 class="modal-title">Vista previa del mazo</h3>
@@ -132,7 +172,6 @@
         <div class="loading-text">Cargando...</div>
     </div>
 
-    <!-- Script principal -->
     <script src="js/index.js"></script>
 </body>
 </html>
