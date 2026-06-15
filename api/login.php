@@ -24,7 +24,7 @@ if (empty($email) || empty($password)) {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT id, nombre, email, password_hash, vidas, maleta, avatar_seed FROM usuarios WHERE email = :email");
+$stmt = $pdo->prepare("SELECT id, nombre, email, password_hash, vidas, maleta FROM usuarios WHERE email = :email");
     $stmt->execute([':email' => $email]);
     $user = $stmt->fetch();
 
@@ -46,7 +46,6 @@ try {
                 'email' => $user['email'],
                 'vidas' => (int)$user['vidas'],
                 'maleta' => $user['maleta'],
-                'avatar_seed' => $user['avatar_seed']
             ]
         ]);
     } else {
