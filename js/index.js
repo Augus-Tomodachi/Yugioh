@@ -456,6 +456,8 @@
             renderGrid(); updateDeckView();
             showMainContent();
             toast(`Bienvenido a la Temporada ${seasonData.numero}, maleta: ${chosen}`, 'success');
+            // Asignar cartas iniciales si corresponde
+            await assignStarterCardsIfNeeded();
         } else {
             showMaletaSelect();
         }
@@ -476,6 +478,32 @@
         renderGrid(); updateDeckView();
         showMainContent();
         toast(`Has elegido ${maleta}`, 'success');
+        // Asignar cartas iniciales si es necesario
+        await assignStarterCardsIfNeeded();
+    }
+
+    // Nueva función: asigna cartas iniciales de la temporada si aún no se ha hecho
+    async function assignStarterCardsIfNeeded() {
+        if (!state.currentUser || !state.activeMaleta) return;
+        try {
+            const resp = await fetch('api/assign_starter_cards.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await resp.json();
+            if (data.success && data.cards_assigned?.length) {
+                toast(`¡Recibiste ${data.cards_assigned.length} cartas iniciales!`, 'success');
+                // Recargar mazo desde el servidor para que incluya las nuevas cartas
+                await loadDeckForMaleta(state.activeMaleta);
+                updateDeckView();
+                renderGrid();
+            } else if (data.message) {
+                // Ya tenía cartas asignadas
+                console.log(data.message);
+            }
+        } catch (e) {
+            console.warn('Error al comprobar cartas iniciales:', e);
+        }
     }
 
     function showLoginForm() { dom.loginForm.style.display='block'; dom.registerForm.style.display='none'; }
