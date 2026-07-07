@@ -1,6 +1,6 @@
 /**
  * Maletas Yu‑Gi‑Oh! - Sistema de Temporadas
- * Versión 3.1 (Cartas iniciales + previsualización en mazo)
+ * Versión 3.2 (Búsqueda exacta + Cartas iniciales + Previsualización en mazo)
  */
 (function () {
     'use strict';
@@ -137,22 +137,71 @@
         return t;
     }
 
-    // ============ API YUGIOH ============
+    // ============ API YUGIOH (búsqueda mejorada) ============
     async function fetchCardAPI(name) {
         if (state.apiCache[name]) return state.apiCache[name];
+
+        const lsKey = 'ygocard_' + name.toLowerCase().replace(/\s+/g, '_');
         try {
-            let r = await fetch(API_YGO + '?fname=' + encodeURIComponent(name));
-            let d = await r.json();
-            if (!d.data?.length) {
-                r = await fetch(API_YGO + '?name=' + encodeURIComponent(name));
-                d = await r.json();
+            const cached = localStorage.getItem(lsKey);
+            if (cached) {
+                state.apiCache[name] = JSON.parse(cached);
+                return state.apiCache[name];
             }
-            if (d.data?.length) {
-                const card = await translateCardData(d.data[0]);
-                state.apiCache[name] = card;
-                return card;
+        } catch (e) { /* ignorar */ }
+
+        // 1. Búsqueda exacta con ?name=
+        try {
+            let url = API_YGO + '?name=' + encodeURIComponent(name);
+            let resp = await fetch(url);
+            if (resp.ok) {
+                let data = await resp.json();
+                if (data.data && data.data.length > 0) {
+                    let card = data.data[0];
+                    card = await translateCardData(card);
+                    state.apiCache[name] = card;
+                    try { localStorage.setItem(lsKey, JSON.stringify(card)); } catch (e) {}
+                    return card;
+                }
             }
-        } catch(e) {}
+        } catch (e) { /* ignorar */ }
+
+        // 2. Búsqueda difusa con ?fname= y filtro exacto
+        try {
+            let url = API_YGO + '?fname=' + encodeURIComponent(name);
+            let resp = await fetch(url);
+            if (!resp.ok) throw new Error('API error');
+            let data = await resp.json();
+
+            if (data.data && data.data.length > 0) {
+                // Filtrar coincidencias exactas (ignorando mayúsculas/minúsculas)
+                let exactMatches = data.data.filter(card =>
+                    card.name.toLowerCase() === name.toLowerCase()
+                );
+                if (exactMatches.length > 0) {
+                    // Preferir carta que no sea de Extra Deck (Fusion, Synchro, Xyz, Link)
+                    let chosen = exactMatches.find(card => {
+                        let type = card.type || '';
+                        return !type.includes('Fusion') && !type.includes('Synchro') &&
+                               !type.includes('Xyz') && !type.includes('Link');
+                    });
+                    if (!chosen) chosen = exactMatches[0]; // si todas son de Extra Deck, usar la primera
+                    chosen = await translateCardData(chosen);
+                    state.apiCache[name] = chosen;
+                    try { localStorage.setItem(lsKey, JSON.stringify(chosen)); } catch (e) {}
+                    return chosen;
+                } else {
+                    // Si no hay coincidencia exacta, usar la primera (puede ser un error, pero devolvemos algo)
+                    let card = data.data[0];
+                    card = await translateCardData(card);
+                    state.apiCache[name] = card;
+                    try { localStorage.setItem(lsKey, JSON.stringify(card)); } catch (e) {}
+                    return card;
+                }
+            }
+        } catch (e) {
+            console.error('Error fetching card:', name, e);
+        }
         return null;
     }
 
