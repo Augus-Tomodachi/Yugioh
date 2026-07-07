@@ -1,6 +1,6 @@
 /**
  * Maletas Yu‑Gi‑Oh! - Sistema de Temporadas
- * Versión 3.2 (Búsqueda exacta + Cartas iniciales + Previsualización en mazo)
+ * Versión 3.2 (Búsqueda exacta + Cartas iniciales + Previsualización en mazo + Sin info de temporada visible)
  */
 (function () {
     'use strict';
@@ -508,7 +508,7 @@
         checkSeasonAndLoad();
     }
     function updateUserDisplay() {
-        if (state.currentUser) dom.userInfo.textContent = `Usuario: ${state.currentUser.nombre}  Vidas Restantes: (${state.currentUser.vidas} ❤️)`;
+        if (state.currentUser) dom.userInfo.textContent = `Usuario: ${state.currentUser.nombre}, Vidas: (${state.currentUser.vidas} ❤️)`;
     }
 
     // ============ TEMPORADA ============
@@ -522,8 +522,6 @@
         if (!seasonData) seasonData = SEASONS_DATA[CURRENT_SEASON_NUMBER];
         state.currentSeason = seasonData;
         state.maletasActivas = seasonData.maletas;
-        dom.seasonTitle.textContent = ``;
-        dom.seasonInfo.textContent = ``;
 
         let chosen = null;
         if (state.currentUser?.maleta && seasonData.maletas.includes(state.currentUser.maleta)) chosen = state.currentUser.maleta;
@@ -536,7 +534,6 @@
             await loadDeckForMaleta(chosen);
             renderGrid(); updateDeckView();
             showMainContent();
-            toast(`Bienvenido a la Temporada ${seasonData.numero}, maleta: ${chosen}`, 'success');
             // Asignar cartas iniciales si corresponde
             await assignStarterCardsIfNeeded();
         } else {
