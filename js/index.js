@@ -508,7 +508,7 @@
         checkSeasonAndLoad();
     }
     function updateUserDisplay() {
-        if (state.currentUser) dom.userInfo.textContent = `👤 ${state.currentUser.nombre} (${state.currentUser.vidas} ❤️)`;
+        if (state.currentUser) dom.userInfo.textContent = `Usuario: ${state.currentUser.nombre}  Vidas Restantes: (${state.currentUser.vidas} ❤️)`;
     }
 
     // ============ TEMPORADA ============
@@ -522,8 +522,8 @@
         if (!seasonData) seasonData = SEASONS_DATA[CURRENT_SEASON_NUMBER];
         state.currentSeason = seasonData;
         state.maletasActivas = seasonData.maletas;
-        dom.seasonTitle.textContent = `Temporada ${seasonData.numero}`;
-        dom.seasonInfo.textContent = `📅 Temporada ${seasonData.numero}`;
+        dom.seasonTitle.textContent = ``;
+        dom.seasonInfo.textContent = ``;
 
         let chosen = null;
         if (state.currentUser?.maleta && seasonData.maletas.includes(state.currentUser.maleta)) chosen = state.currentUser.maleta;
