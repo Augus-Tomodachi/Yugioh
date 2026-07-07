@@ -1,6 +1,6 @@
 /**
  * Maletas Yu‑Gi‑Oh! - Sistema de Temporadas
- * Versión 3.0 (PHP + localStorage híbrido)
+ * Versión 3.1 (Cartas iniciales + previsualización en mazo)
  */
 (function () {
     'use strict';
@@ -215,7 +215,7 @@
     function addCardToDeck(cardObj) {
         if (isCardInDeck(cardObj.Nombre)) { removeCardFromDeck(cardObj.Nombre); return false; }
         if (state.deckCards.length >= MAX_DECK_SIZE) { toast('Límite alcanzado','warning'); return false; }
-        state.deckCards.push({ ...cardObj, apiData: state.apiCache[cardObj.Nombre] || null });
+        state.deckCards.push({ ...cardObj, apiData: state.apiCache[cardObj.Nombre] || null, isStarter: false });
         fetchCardAPI(cardObj.Nombre).then(d => {
             const c = state.deckCards.find(x => x.Nombre === cardObj.Nombre);
             if (c) c.apiData = d;
@@ -224,14 +224,27 @@
         updateDeckView(); renderGrid(); autoSaveDeck(); return true;
     }
     function removeCardFromDeck(name) {
+        const card = state.deckCards.find(c => c.Nombre === name);
+        if (card?.isStarter) {
+            toast('No puedes eliminar una carta inicial', 'warning');
+            return;
+        }
         state.deckCards = state.deckCards.filter(c => c.Nombre !== name);
         if (state.currentDetailCard?.Nombre === name) clearDetail();
         updateDeckView(); renderGrid(); autoSaveDeck();
     }
     function clearDeck(silent=false) {
-        state.deckCards = [];
+        const antes = state.deckCards.length;
+        state.deckCards = state.deckCards.filter(c => c.isStarter);
+        const despues = state.deckCards.length;
         updateDeckView(); renderGrid(); autoSaveDeck();
-        if (!silent) toast('Mazo vaciado','info');
+        if (!silent) {
+            if (antes === despues) {
+                toast('Solo tienes cartas iniciales, no se puede vaciar', 'info');
+            } else {
+                toast('Mazo vaciado (excepto cartas iniciales)', 'info');
+            }
+        }
     }
     function moveDeckItem(from, to) {
         if (from===to) return;
@@ -260,11 +273,27 @@
                     const from = parseInt(document.querySelector('.deck-item.dragging')?.dataset.index);
                     if (!isNaN(from) && from !== idx) moveDeckItem(from, idx);
                 });
-                item.addEventListener('click', e => { if (!e.target.classList.contains('deck-remove')) showDetailForCard(card); });
+                // Click para detalle persistente
+                item.addEventListener('click', e => {
+                    if (!e.target.classList.contains('deck-remove')) showDetailForCard(card);
+                });
+                // NUEVO: previsualización al pasar el cursor
+                item.addEventListener('mouseenter', () => {
+                    showDetailForCard(card);
+                });
+                item.addEventListener('mouseleave', () => {
+                    clearDetail();
+                });
                 const img = document.createElement('img'); img.className = 'deck-thumb';
                 img.src = card.apiData?.card_images?.[0]?.image_url_small || 'data:image/svg+xml,...';
                 const nameSpan = document.createElement('span'); nameSpan.className = 'deck-name'; nameSpan.textContent = card.apiData?.name || card.Nombre;
                 const remBtn = document.createElement('button'); remBtn.className = 'deck-remove'; remBtn.textContent = '×';
+                if (card.isStarter) {
+                    remBtn.disabled = true;
+                    remBtn.style.opacity = '0.5';
+                    remBtn.style.cursor = 'not-allowed';
+                    remBtn.title = 'Carta inicial, no se puede eliminar';
+                }
                 remBtn.addEventListener('click', e => { e.stopPropagation(); removeCardFromDeck(card.Nombre); });
                 item.appendChild(img); item.appendChild(nameSpan); item.appendChild(remBtn);
                 dom.deckList.appendChild(item);
@@ -312,11 +341,13 @@
 
     async function loadDeckForMaleta(maleta) {
         let names = [];
+        let starterNames = [];
         if (state.currentUser) {
             try {
                 const r = await fetch(`api/load_deck.php?maleta=${encodeURIComponent(maleta)}`);
                 const d = await r.json();
                 if (d.cards) names = d.cards;
+                if (d.starter_card_names) starterNames = d.starter_card_names;
             } catch(e) {}
         }
         if (names.length === 0) {
@@ -325,7 +356,8 @@
         }
         state.deckCards = names.map(name => ({
             ...(state.cardsByMaleta[maleta]?.find(c => c.Nombre === name) || { Nombre: name, Maleta: maleta }),
-            apiData: null
+            apiData: null,
+            isStarter: starterNames.includes(name)
         }));
         state.deckCards.forEach(c => fetchCardAPI(c.Nombre).then(d => { c.apiData = d; updateDeckView(); }));
     }
@@ -482,7 +514,7 @@
         await assignStarterCardsIfNeeded();
     }
 
-    // Nueva función: asigna cartas iniciales de la temporada si aún no se ha hecho
+    // Función para asignar cartas iniciales de la temporada
     async function assignStarterCardsIfNeeded() {
         if (!state.currentUser || !state.activeMaleta) return;
         try {
@@ -493,12 +525,11 @@
             const data = await resp.json();
             if (data.success && data.cards_assigned?.length) {
                 toast(`¡Recibiste ${data.cards_assigned.length} cartas iniciales!`, 'success');
-                // Recargar mazo desde el servidor para que incluya las nuevas cartas
+                // Recargar mazo para que incluya las nuevas cartas y sus marcas
                 await loadDeckForMaleta(state.activeMaleta);
                 updateDeckView();
                 renderGrid();
             } else if (data.message) {
-                // Ya tenía cartas asignadas
                 console.log(data.message);
             }
         } catch (e) {
